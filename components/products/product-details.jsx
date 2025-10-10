@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { ShoppingCart, Heart, Minus, Plus } from "lucide-react"
 import { addToCart } from "@/lib/cart"
+import { addToWishlist, removeFromWishlist, isInWishlist } from "@/lib/wishlist"
 import { getProductMainImage, getProductImages, handleImageError as handleImgError } from "@/lib/image-utils"
 
 export function ProductDetails({ product }) {
@@ -20,18 +21,28 @@ export function ProductDetails({ product }) {
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [inWishlist, setInWishlist] = useState(false)
+  const [wishlistLoading, setWishlistLoading] = useState(false)
 
   // Get all valid images for the gallery
   const productImages = getProductImages(product)
 
+  useEffect(() => {
+    async function checkWishlist() {
+      const isInList = await isInWishlist(product.id)
+      setInWishlist(isInList)
+    }
+    checkWishlist()
+  }, [product.id])
+
   // Handle image load error
   const handleImageError = (e) => {
     if (!imageError) {
-      setImageError(true);
-      setSelectedImage("/placeholder.svg");
-      handleImgError(e);
+      setImageError(true)
+      setSelectedImage("/placeholder.svg")
+      handleImgError(e)
     }
-  };
+  }
 
   const handleAddToCart = async () => {
     if (!selectedSize || !selectedColor) {
@@ -60,6 +71,33 @@ export function ProductDetails({ product }) {
     router.push("/cart")
   }
 
+  const handleWishlistToggle = async () => {
+    setWishlistLoading(true)
+    try {
+      if (inWishlist) {
+        const { error } = await removeFromWishlist(product.id)
+        if (error) {
+          alert("Error removing from wishlist: " + error.message)
+        } else {
+          setInWishlist(false)
+          router.refresh()
+        }
+      } else {
+        const { error } = await addToWishlist(product.id)
+        if (error) {
+          alert("Error adding to wishlist: " + error.message)
+        } else {
+          setInWishlist(true)
+          router.refresh()
+        }
+      }
+    } catch (error) {
+      alert("Please login to manage wishlist")
+      router.push("/login")
+    }
+    setWishlistLoading(false)
+  }
+
   return (
     <div className="container py-8">
       <div className="grid gap-8 md:grid-cols-2">
@@ -67,7 +105,7 @@ export function ProductDetails({ product }) {
         <div className="space-y-4">
           <div className="relative aspect-square overflow-hidden rounded-lg border">
             <Image
-              src={selectedImage}
+              src={selectedImage || "/placeholder.svg"}
               alt={product.name}
               fill
               className="object-cover"
@@ -94,7 +132,7 @@ export function ProductDetails({ product }) {
                     }`}
                 >
                   <Image
-                    src={image}
+                    src={image || "/placeholder.svg"}
                     alt={`${product.name} ${index + 1}`}
                     fill
                     className="object-cover"
@@ -207,8 +245,14 @@ export function ProductDetails({ product }) {
                 >
                   Buy Now
                 </Button>
-                <Button variant="outline" size="icon" className="h-12 w-12 bg-transparent">
-                  <Heart className="w-5 h-5" />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 bg-transparent"
+                  onClick={handleWishlistToggle}
+                  disabled={wishlistLoading}
+                >
+                  <Heart className={`w-5 h-5 ${inWishlist ? "fill-red-500 text-red-500" : ""}`} />
                 </Button>
               </div>
             </CardContent>

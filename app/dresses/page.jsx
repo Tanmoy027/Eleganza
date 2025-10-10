@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Grid3X3, List, ChevronDown, Truck, RotateCcw, Headphones, Shield } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { getProductMainImage, handleImageError } from "@/lib/image-utils"
 
 export default function DressesPage() {
   const [selectedSeason, setSelectedSeason] = useState("all")
@@ -22,6 +23,7 @@ export default function DressesPage() {
         .order("created_at", { ascending: false })
 
       if (data) {
+        console.log("[v0] Dresses page - Fetched products:", data)
         setProducts(data)
       }
       setLoading(false)
@@ -79,8 +81,8 @@ export default function DressesPage() {
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 mb-12">
             {filteredProducts.map((product) => {
-              const images = product.images || []
-              const mainImage = images[0] || "/placeholder.svg"
+              const hasDiscount = product.compare_at_price && product.compare_at_price > product.price
+              const mainImage = getProductMainImage(product)
 
               return (
                 <div key={product.id} className="group">
@@ -91,7 +93,13 @@ export default function DressesPage() {
                         alt={product.name}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={handleImageError}
                       />
+                      {hasDiscount && (
+                        <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 text-xs font-medium">
+                          SALE
+                        </div>
+                      )}
                     </div>
                   </Link>
                   <div className="text-center">

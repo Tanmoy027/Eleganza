@@ -8,7 +8,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { getProductMainImage, handleImageError } from "@/lib/image-utils"
 
 export default function OccasionsPage() {
-  const [selectedOccasion, setSelectedOccasion] = useState("all")
+  const [selectedOccasion, setSelectedOccasion] = useState("")
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -22,6 +22,7 @@ export default function OccasionsPage() {
         .order("created_at", { ascending: false })
 
       if (data) {
+        console.log("[v0] Fetched products:", data)
         setProducts(data)
       }
       setLoading(false)
@@ -30,7 +31,10 @@ export default function OccasionsPage() {
     fetchProducts()
   }, [])
 
-  const filteredProducts = products
+  const filteredProducts =
+    selectedOccasion === ""
+      ? products
+      : products.filter((p) => p.occasion?.toLowerCase() === selectedOccasion.toLowerCase())
 
   if (loading) {
     return (
@@ -58,6 +62,52 @@ export default function OccasionsPage() {
           </p>
         </div>
 
+        {/* Filter Buttons for Occasions */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6 md:mb-8">
+          <button
+            onClick={() => setSelectedOccasion("")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            ALL OCCASIONS
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("wedding")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "wedding" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            WEDDING
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("party")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "party" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            PARTY
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("casual")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "casual" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            CASUAL
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("formal")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "formal" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            FORMAL
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("festive")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "festive" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            FESTIVE
+          </button>
+        </div>
+
         {/* Product Controls */}
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <div className="flex items-center space-x-4">
@@ -80,13 +130,14 @@ export default function OccasionsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 mb-12">
             {filteredProducts.map((product) => {
               const hasDiscount = product.compare_at_price && product.compare_at_price > product.price
+              const mainImage = getProductMainImage(product)
 
               return (
                 <div key={product.id} className="group">
                   <Link href={`/products/${product.id}`}>
                     <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden cursor-pointer relative">
                       <Image
-                        src={getProductMainImage(product)}
+                        src={mainImage || "/placeholder.svg"}
                         alt={product.name}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -118,7 +169,7 @@ export default function OccasionsPage() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-gray-500">No products available yet.</p>
+            <p className="text-gray-500">No products available for this occasion.</p>
           </div>
         )}
 
