@@ -6,10 +6,8 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Minus, Plus, Trash2 } from "lucide-react"
-import { updateCartItem, removeFromCart } from "@/lib/cart"
-import { getProductMainImage, handleImageError } from "@/lib/image-utils"
-import { Minus, Plus, Trash2 } from "lucide-react"
 import { updateCartItemQuantity, removeFromCart } from "@/lib/cart"
+import { getProductMainImage, handleImageError } from "@/lib/image-utils"
 
 export function CartItems({ items }) {
   const router = useRouter()
