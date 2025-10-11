@@ -84,11 +84,11 @@ export default function ClothingPage() {
             MEN
           </button>
           <button
-            onClick={() => setSelectedCategory("children")}
-            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "children" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+            onClick={() => setSelectedCategory("child")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "child" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
-            CHILDREN
+            CHILD
           </button>
         </div>
 

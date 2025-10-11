@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { X, Loader2 } from "lucide-react"
-import { validateImageUrl } from "@/lib/image-utils"
 
 export default function ProductForm({ product }) {
   const router = useRouter()
@@ -214,6 +213,9 @@ export default function ProductForm({ product }) {
                   <SelectItem value="wedding">Wedding</SelectItem>
                   <SelectItem value="sports">Sports</SelectItem>
                   <SelectItem value="traditional">Traditional</SelectItem>
+                  <SelectItem value="puja">Puja</SelectItem>
+                  <SelectItem value="eid">Eid</SelectItem>
+                  <SelectItem value="christmas">Christmas</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -100,11 +100,32 @@ export default function OccasionsPage() {
             FORMAL
           </button>
           <button
-            onClick={() => setSelectedOccasion("festive")}
-            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "festive" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+            onClick={() => setSelectedOccasion("traditional")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "traditional" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
-            FESTIVE
+            TRADITIONAL
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("puja")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "puja" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            PUJA
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("eid")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "eid" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            EID
+          </button>
+          <button
+            onClick={() => setSelectedOccasion("christmas")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "christmas" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            CHRISTMAS
           </button>
         </div>
 
