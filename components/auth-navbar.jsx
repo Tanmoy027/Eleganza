@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Heart, User, Search, Menu, X, ShoppingCart } from "lucide-react"
+import { Heart, User, Search, Menu, X, ShoppingCart, Package } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { UserNav } from "@/components/auth/user-nav"
 import { Button } from "@/components/ui/button"
@@ -182,14 +182,21 @@ export default function AuthNavbar() {
                                         >
                                             <ShoppingCart className="w-4 h-4" />
                                             <span>Cart</span>
-                                        </Link>
-                                        <Link
+                                        </Link>                                        <Link
                                             href="/wishlist"
                                             className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             <Heart className="w-4 h-4" />
                                             <span>Wishlist</span>
+                                        </Link>
+                                        <Link
+                                            href="/orders"
+                                            className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            <Package className="w-4 h-4" />
+                                            <span>My Orders</span>
                                         </Link>
                                         <Link
                                             href="/account"

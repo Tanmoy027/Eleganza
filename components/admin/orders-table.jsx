@@ -16,13 +16,33 @@ export default function OrdersTable({ orders }) {
 
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId)
-    const { error } = await supabase.from("orders").update({ order_status: newStatus }).eq("id", orderId)
 
-    if (error) {
-      alert("Error updating order: " + error.message)
-    } else {
-      router.refresh()
+    // Update order status
+    const { error: orderError } = await supabase
+      .from("orders")
+      .update({ status: newStatus })
+      .eq("id", orderId)
+
+    if (orderError) {
+      alert("Error updating order: " + orderError.message)
+      setUpdating(null)
+      return
     }
+
+    // Add tracking entry
+    const { error: trackingError } = await supabase
+      .from("order_tracking")
+      .insert({
+        order_id: orderId,
+        status: newStatus,
+        message: `Order status updated to ${newStatus.replace('_', ' ')} by admin`
+      })
+
+    if (trackingError) {
+      console.error("Error adding tracking entry:", trackingError)
+    }
+
+    router.refresh()
     setUpdating(null)
   }
 
@@ -65,7 +85,7 @@ export default function OrdersTable({ orders }) {
               <TableCell className="font-medium">${order.total_amount.toFixed(2)}</TableCell>
               <TableCell>
                 <Select
-                  value={order.order_status}
+                  value={order.status}
                   onValueChange={(value) => handleStatusChange(order.id, value)}
                   disabled={updating === order.id}
                 >
@@ -74,6 +94,7 @@ export default function OrdersTable({ orders }) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
                     <SelectItem value="processing">Processing</SelectItem>
                     <SelectItem value="shipped">Shipped</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>

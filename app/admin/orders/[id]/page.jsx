@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import OrderStatusUpdate from "@/components/admin/order-status-update"
 
 export default async function OrderDetailPage({ params }) {
   const cookieStore = cookies()
@@ -40,6 +41,9 @@ export default async function OrderDetailPage({ params }) {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Order Details</h1>
 
+      {/* Order Status Update */}
+      <OrderStatusUpdate orderId={params.id} currentStatus={order.status} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Order Info */}
         <Card>
@@ -53,7 +57,7 @@ export default async function OrderDetailPage({ params }) {
             </div>
             <div>
               <p className="text-sm text-gray-600">Status</p>
-              <Badge>{order.order_status}</Badge>
+              <Badge>{order.status}</Badge>
             </div>
             <div>
               <p className="text-sm text-gray-600">Payment Status</p>
@@ -82,7 +86,18 @@ export default async function OrderDetailPage({ params }) {
             </div>
             <div>
               <p className="text-sm text-gray-600">Shipping Address</p>
-              <p className="font-medium">{order.shipping_address}</p>
+              <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">
+                {typeof order.shipping_address === 'object' ? (
+                  <>
+                    <p className="font-medium">{order.shipping_address.fullName}</p>
+                    <p>{order.shipping_address.address}</p>
+                    <p>{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zipCode}</p>
+                    {order.shipping_address.phone && <p>Phone: {order.shipping_address.phone}</p>}
+                  </>
+                ) : (
+                  <p className="font-medium">{order.shipping_address}</p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -119,20 +134,44 @@ export default async function OrderDetailPage({ params }) {
       {/* Tracking History */}
       <Card>
         <CardHeader>
-          <CardTitle>Tracking History</CardTitle>
+          <CardTitle>Order Tracking Timeline</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {tracking?.map((track) => (
-              <div key={track.id} className="flex items-start space-x-4">
-                <div className="w-2 h-2 bg-blue-600 rounded-full mt-2" />
-                <div>
-                  <p className="font-medium">{track.status}</p>
-                  <p className="text-sm text-gray-600">{new Date(track.created_at).toLocaleString()}</p>
+          {tracking && tracking.length > 0 ? (
+            <div className="space-y-6">
+              {tracking.map((track, index) => (
+                <div key={track.id} className="flex items-start space-x-4">
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${index === 0 ? 'bg-blue-600' : 'bg-gray-400'
+                    }`}>
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-gray-900 capitalize">
+                        {track.status?.replace('_', ' ')}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(track.created_at).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </p>
+                    </div>
+                    {track.message && (
+                      <p className="text-sm text-gray-600">{track.message}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No tracking information available</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
