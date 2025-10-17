@@ -37,6 +37,7 @@ export default function ProductsTable({ products }) {
             <TableHead>Image</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Category</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Occasion</TableHead>
             <TableHead>Season</TableHead>
             <TableHead>Price</TableHead>
@@ -64,6 +65,7 @@ export default function ProductsTable({ products }) {
                 </TableCell>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell>{product.category}</TableCell>
+                <TableCell className="text-sm">{product.clothing_type ? product.clothing_type.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : '-'}</TableCell>
                 <TableCell>{product.occasion}</TableCell>
                 <TableCell>{product.season}</TableCell>
                 <TableCell>${product.price.toFixed(2)}</TableCell>

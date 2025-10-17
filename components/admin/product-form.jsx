@@ -20,6 +20,7 @@ export default function ProductForm({ product }) {
     description: product?.description || "",
     price: product?.price || "",
     category: product?.category || "",
+    clothing_type: product?.clothing_type || "",
     occasion: product?.occasion || "",
     season: product?.season || "",
     sizes: product?.sizes?.join(", ") || "",
@@ -30,6 +31,74 @@ export default function ProductForm({ product }) {
   })
 
   const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+  // Clothing types based on category (matching exact database constraint values)
+  const clothingTypes = {
+    men: [
+      { value: 'formal-shirt', label: 'Formal Shirt' },
+      { value: 'casual-shirt', label: 'Casual Shirt' },
+      { value: 'panjabi-kurta', label: 'Panjabi (Kurta)' },
+      { value: 't-shirts', label: 'T-Shirts' },
+      { value: 'polo-shirts', label: 'Polo Shirts' },
+      { value: 'pants', label: 'Pants' },
+      { value: 'trousers', label: 'Trousers' },
+      { value: 'jeans', label: 'Jeans' },
+      { value: 'denim', label: 'Denim' },
+      { value: 'mens-loungewear', label: 'Loungewear' },
+      { value: 'sleepwear', label: 'Sleepwear' },
+      { value: 'jacket', label: 'Jacket' },
+      { value: 'coat', label: 'Coat' },
+      { value: 'sweater', label: 'Sweater' },
+      { value: 'ethnic-outfits', label: 'Ethnic Outfits' },
+      { value: 'formal-suits', label: 'Formal Suits' },
+      { value: 'blazers', label: 'Blazers' }
+    ],
+    women: [
+      { value: 'saree', label: 'Saree' },
+      { value: 'salwar-kameez', label: 'Salwar-Kameez' },
+      { value: 'kurti', label: 'Kurti' },
+      { value: 'kurtas', label: 'Kurtas' },
+      { value: 'tops', label: 'Tops' },
+      { value: 'blouses', label: 'Blouses' },
+      { value: 'maxi-dresses', label: 'Maxi Dresses' },
+      { value: 'gowns', label: 'Gowns' },
+      { value: 'skirts', label: 'Skirts' },
+      { value: 'palazzos', label: 'Palazzos' },
+      { value: 'nightwear', label: 'Nightwear' },
+      { value: 'loungewear', label: 'Loungewear' },
+      { value: 'hijab', label: 'Hijab' },
+      { value: 'dupatta', label: 'Dupatta' },
+      { value: 'scarves', label: 'Scarves' },
+      { value: 'unstitched-cloth', label: 'Unstitched Cloth' },
+      { value: 'western-wear-jackets', label: 'Western Wear Jackets' },
+      { value: 'jumpsuits', label: 'Jumpsuits' }
+    ],
+    child: [
+      { value: 'boys-shirts', label: 'Boys Shirts' },
+      { value: 'girls-tops', label: 'Girls Tops' },
+      { value: 'kids-t-shirts', label: 'Kids T-Shirts' },
+      { value: 'boys-pants', label: 'Boys Pants' },
+      { value: 'girls-dresses', label: 'Girls Dresses' },
+      { value: 'kids-shorts', label: 'Kids Shorts' },
+      { value: 'school-uniforms', label: 'School Uniforms' },
+      { value: 'kids-ethnic-wear', label: 'Kids Ethnic Wear' },
+      { value: 'baby-rompers', label: 'Baby Rompers' },
+      { value: 'kids-sleepwear', label: 'Kids Sleepwear' },
+      { value: 'kids-jackets', label: 'Kids Jackets' },
+      { value: 'kids-traditional', label: 'Kids Traditional' },
+      { value: 'kids-casual', label: 'Kids Casual' },
+      { value: 'kids-formal', label: 'Kids Formal' }
+    ]
+  }
+
+  // Handle category change - reset clothing type when category changes
+  const handleCategoryChange = (value) => {
+    setFormData({
+      ...formData,
+      category: value,
+      clothing_type: "" // Reset clothing type when category changes
+    })
+  }
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
@@ -184,7 +253,7 @@ export default function ProductForm({ product }) {
               <Label htmlFor="category">Category</Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                onValueChange={handleCategoryChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
@@ -193,6 +262,26 @@ export default function ProductForm({ product }) {
                   <SelectItem value="men">Men</SelectItem>
                   <SelectItem value="women">Women</SelectItem>
                   <SelectItem value="child">Child</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="clothing_type">Clothing Type</Label>
+              <Select
+                value={formData.clothing_type}
+                onValueChange={(value) => setFormData({ ...formData, clothing_type: value })}
+                disabled={!formData.category}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={formData.category ? "Select clothing type" : "Select category first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {formData.category && clothingTypes[formData.category]?.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

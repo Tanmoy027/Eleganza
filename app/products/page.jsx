@@ -10,6 +10,9 @@ export default async function ProductsPage({ searchParams }) {
   if (params.category) {
     query = query.eq("category", params.category)
   }
+  if (params.clothing_type) {
+    query = query.eq("clothing_type", params.clothing_type)
+  }
   if (params.occasion) {
     query = query.eq("occasion", params.occasion)
   }

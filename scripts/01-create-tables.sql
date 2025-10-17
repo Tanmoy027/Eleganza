@@ -19,6 +19,17 @@ CREATE TABLE IF NOT EXISTS products (
   description TEXT,
   price DECIMAL(10, 2) NOT NULL,
   category TEXT NOT NULL CHECK (category IN ('men', 'women', 'child')),
+  clothing_type TEXT NOT NULL CHECK (clothing_type IN (
+    -- Women's clothing types
+    'saree', 'salwar-kameez', 'kurti', 'kurtas', 'tops', 'blouses', 'maxi-dresses', 'gowns', 'skirts', 'palazzos', 
+    'nightwear', 'loungewear', 'hijab', 'dupatta', 'scarves', 'unstitched-cloth', 'western-wear-jackets', 'jumpsuits',
+    -- Men's clothing types
+    'formal-shirt', 'casual-shirt', 'panjabi-kurta', 't-shirts', 'polo-shirts', 'pants', 'trousers', 'jeans', 'denim', 
+    'mens-loungewear', 'sleepwear', 'jacket', 'coat', 'sweater', 'ethnic-outfits', 'formal-suits', 'blazers',
+    -- Children's clothing types
+    'boys-shirts', 'girls-tops', 'kids-t-shirts', 'boys-pants', 'girls-dresses', 'kids-shorts', 'school-uniforms', 
+    'kids-ethnic-wear', 'baby-rompers', 'kids-sleepwear', 'kids-jackets', 'kids-traditional', 'kids-casual', 'kids-formal'
+  )),
   occasion TEXT NOT NULL CHECK (occasion IN ('casual', 'formal', 'party', 'wedding', 'sports', 'traditional')),
   season TEXT NOT NULL CHECK (season IN ('summer', 'winter', 'spring', 'autumn', 'all-season')),
   stock_quantity INTEGER DEFAULT 0,

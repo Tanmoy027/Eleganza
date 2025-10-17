@@ -20,7 +20,7 @@ export default function Home() {
                 <OccasionSection />
             </ClientOnly>
             <ShopBanners />
-            <ImageGrid />
+
             <CraftsmanshipSection />
             <ServiceFeatures />
             <TestimonialSlider />
