@@ -18,9 +18,15 @@ export function UserNav({ user }) {
   const router = useRouter()
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push("/")
-    router.refresh()
+    try {
+      await signOut()
+      // Clear any client-side state
+      window.location.href = "/"
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Force redirect even on error
+      window.location.href = "/"
+    }
   }
 
   const initials =

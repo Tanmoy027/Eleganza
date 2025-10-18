@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signInAndRedirect } from "@/lib/auth"
+import { useAppState } from "@/components/providers/app-state-provider"
+import { withRetry } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +15,7 @@ import Link from "next/link"
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { setOperationState, isOperationActive, forceRefresh } = useAppState()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState(null)
@@ -32,16 +35,28 @@ export function LoginForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Prevent multiple submissions
+    if (loading || isOperationActive('login')) return
+
     setLoading(true)
+    setOperationState('login', true)
     setError(null)
 
     try {
-      await signInAndRedirect(email, password, router)
-      // The redirect will happen in signInAndRedirect function
+      // Use retry utility
+      await withRetry(async () => {
+        await signInAndRedirect(email, password, router)
+      }, 3, 1000)
+
+      // Force refresh app state
+      forceRefresh()
     } catch (error) {
       console.error("Login error:", error)
       setError(error.message || "An error occurred during login")
+    } finally {
       setLoading(false)
+      setOperationState('login', false)
     }
   }
 

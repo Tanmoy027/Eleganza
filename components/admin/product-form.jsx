@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserClient } from "@supabase/ssr"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { useAppState } from "@/components/providers/app-state-provider"
+import { withRetry, safeNavigate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +15,7 @@ import { X, Loader2 } from "lucide-react"
 
 export default function ProductForm({ product }) {
   const router = useRouter()
+  const { setOperationState, isOperationActive, forceRefresh } = useAppState()
   const [loading, setLoading] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
   const [formData, setFormData] = useState({
@@ -30,7 +33,7 @@ export default function ProductForm({ product }) {
     images: product?.images || [],
   })
 
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  const supabase = getSupabaseBrowserClient()
 
   // Clothing types based on category (matching exact database constraint values)
   const clothingTypes = {
@@ -100,79 +103,127 @@ export default function ProductForm({ product }) {
     })
   }
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = useCallback(async (e) => {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
 
+    // Prevent multiple uploads
+    if (uploadingImages || isOperationActive('imageUpload')) return
+
     setUploadingImages(true)
+    setOperationState('imageUpload', true)
     const uploadedUrls = []
     let hasErrors = false
+    let uploadedCount = 0
 
-    for (const file of files) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert(`${file.name} is not a valid image file`)
-        continue
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`${file.name} is too large (max 5MB)`)
-        continue
-      }
-
-      const fileExt = file.name.split(".").pop().toLowerCase()
-      const fileName = `product-${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
-      const filePath = `products/${fileName}`
-
-      try {
-        const { data, error } = await supabase.storage.from("productimage").upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
-
-        if (error) {
-          console.error("Error uploading image:", error)
-          alert(`Error uploading ${file.name}: ${error.message}`)
-          hasErrors = true
-        } else {
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from("productimage").getPublicUrl(filePath)
-
-          if (publicUrl) {
-            uploadedUrls.push(publicUrl)
-          }
+    try {
+      // Process files one by one to avoid overwhelming the server
+      for (const file of files) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          alert(`${file.name} is not a valid image file`)
+          continue
         }
-      } catch (err) {
-        console.error("Upload error:", err)
-        alert(`Failed to upload ${file.name}`)
-        hasErrors = true
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`${file.name} is too large (max 5MB)`)
+          continue
+        }
+
+        const fileExt = file.name.split(".").pop().toLowerCase()
+        const fileName = `product-${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
+        const filePath = `products/${fileName}`
+
+        try {
+          // Add retry logic for upload with exponential backoff
+          let uploadSuccess = false
+          let retries = 0
+          const maxRetries = 3
+
+          while (!uploadSuccess && retries < maxRetries) {
+            try {
+              const { data, error } = await supabase.storage.from("productimage").upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
+              })
+
+              if (error) {
+                retries++
+                if (retries >= maxRetries) {
+                  console.error("Error uploading image after retries:", error)
+                  alert(`Error uploading ${file.name}: ${error.message}`)
+                  hasErrors = true
+                } else {
+                  // Exponential backoff
+                  await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000))
+                }
+              } else {
+                uploadSuccess = true
+                const { data: { publicUrl } } = supabase.storage.from("productimage").getPublicUrl(filePath)
+
+                if (publicUrl) {
+                  uploadedUrls.push(publicUrl)
+                  uploadedCount++
+
+                  // Update state immediately for each successful upload
+                  setFormData(prev => {
+                    const newImages = [...prev.images, publicUrl]
+                    const newImageUrl = prev.image_url && prev.image_url.trim() !== ''
+                      ? prev.image_url
+                      : newImages[0] || ""
+
+                    return {
+                      ...prev,
+                      images: newImages,
+                      image_url: newImageUrl,
+                    }
+                  })
+                }
+              }
+            } catch (uploadError) {
+              retries++
+              if (retries >= maxRetries) {
+                console.error("Upload error:", uploadError)
+                alert(`Failed to upload ${file.name}: ${uploadError.message}`)
+                hasErrors = true
+              } else {
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000))
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Upload error:", err)
+          alert(`Failed to upload ${file.name}: ${err.message}`)
+          hasErrors = true
+        }
+
+        // Small delay between file uploads to prevent rate limiting
+        if (files.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+      }
+
+      // Show success message
+      if (uploadedCount > 0) {
+        alert(`Successfully uploaded ${uploadedCount} image${uploadedCount > 1 ? 's' : ''}!`)
+      }
+
+      if (hasErrors && uploadedUrls.length === 0) {
+        alert("No images were successfully uploaded. Please try again.")
+      }
+    } catch (error) {
+      console.error("Unexpected error during upload:", error)
+      alert("An unexpected error occurred. Please try again.")
+    } finally {
+      setUploadingImages(false)
+      setOperationState('imageUpload', false)
+      // Clear the input
+      if (e.target) {
+        e.target.value = ''
       }
     }
-
-    if (uploadedUrls.length > 0) {
-      const newImages = [...formData.images, ...uploadedUrls]
-      // Set the main image_url to the first image if not already set
-      const newImageUrl = formData.image_url && formData.image_url.trim() !== ''
-        ? formData.image_url
-        : newImages[0] || "";
-
-      setFormData({
-        ...formData,
-        images: newImages,
-        image_url: newImageUrl,
-      })
-    }
-
-    if (hasErrors && uploadedUrls.length === 0) {
-      alert("No images were successfully uploaded. Please try again.")
-    }
-
-    setUploadingImages(false)
-    // Clear the input
-    e.target.value = ''
-  }
+  }, [uploadingImages, isOperationActive, setOperationState, formData.images, supabase])
 
   const removeImage = (indexToRemove) => {
     const newImages = formData.images.filter((_, index) => index !== indexToRemove)
@@ -192,35 +243,104 @@ export default function ProductForm({ product }) {
     })
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault()
+
+    // Prevent multiple submissions
+    if (loading || uploadingImages || isOperationActive('productSave')) {
+      return
+    }
+
     setLoading(true)
+    setOperationState('productSave', true)
 
-    const productData = {
-      ...formData,
-      price: Number.parseFloat(formData.price),
-      stock_quantity: Number.parseInt(formData.stock_quantity),
-      sizes: formData.sizes.split(",").map((s) => s.trim()),
-      colors: formData.colors.split(",").map((c) => c.trim()),
-    }
+    try {
+      // Validate required fields
+      if (!formData.name || !formData.price || !formData.category || !formData.description) {
+        alert("Please fill in all required fields")
+        setLoading(false)
+        return
+      }
 
-    let error
-    if (product) {
-      const result = await supabase.from("products").update(productData).eq("id", product.id)
-      error = result.error
-    } else {
-      const result = await supabase.from("products").insert([productData])
-      error = result.error
-    }
+      if (formData.images.length === 0) {
+        alert("Please upload at least one product image")
+        setLoading(false)
+        return
+      }
 
-    if (error) {
-      alert("Error saving product: " + error.message)
-    } else {
-      router.push("/admin/products")
-      router.refresh()
+      const productData = {
+        ...formData,
+        price: Number.parseFloat(formData.price),
+        stock_quantity: Number.parseInt(formData.stock_quantity) || 0,
+        sizes: formData.sizes.split(",").map((s) => s.trim()).filter(s => s),
+        colors: formData.colors.split(",").map((c) => c.trim()).filter(c => c),
+      }
+
+      let result
+      let error
+
+      // Add retry logic for database operations with exponential backoff
+      let retries = 0
+      const maxRetries = 3
+      let success = false
+
+      while (!success && retries < maxRetries) {
+        try {
+          if (product) {
+            result = await supabase.from("products").update(productData).eq("id", product.id).select()
+          } else {
+            result = await supabase.from("products").insert([productData]).select()
+          }
+          error = result.error
+
+          if (!error && result.data) {
+            success = true
+          } else {
+            retries++
+            if (retries < maxRetries) {
+              // Exponential backoff
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000))
+            }
+          }
+        } catch (err) {
+          retries++
+          error = err
+          if (retries < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000))
+          }
+        }
+      }
+
+      if (error) {
+        console.error("Error saving product:", error)
+        alert("Error saving product: " + (error.message || "Unknown error"))
+        setLoading(false)
+        return
+      }
+
+      if (!success) {
+        alert("Failed to save product after multiple attempts. Please try again.")
+        setLoading(false)
+        return
+      }
+
+      // Show success message
+      alert(`Product ${product ? 'updated' : 'created'} successfully!`)
+
+      // Navigate back with proper state management
+      setTimeout(() => {
+        // Use window.location for a complete refresh to ensure clean state
+        window.location.href = "/admin/products"
+      }, 1000)
+
+    } catch (error) {
+      console.error("Unexpected error:", error)
+      alert("An unexpected error occurred: " + (error.message || "Unknown error"))
+    } finally {
+      setLoading(false)
+      setOperationState('productSave', false)
     }
-    setLoading(false)
-  }
+  }, [loading, uploadingImages, isOperationActive, setOperationState, formData, product, supabase, router])
 
   return (
     <Card>

@@ -6,6 +6,14 @@ export async function middleware(request) {
     request,
   })
 
+  // Add no-cache headers for admin and API routes
+  if (request.nextUrl.pathname.startsWith('/admin') ||
+    request.nextUrl.pathname.startsWith('/api/')) {
+    supabaseResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+    supabaseResponse.headers.set('Pragma', 'no-cache')
+    supabaseResponse.headers.set('Expires', '0')
+  }
+
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
@@ -21,9 +29,14 @@ export async function middleware(request) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data?.user
+  } catch (error) {
+    console.error('Error getting user in middleware:', error)
+    // Continue without user if auth fails
+  }
 
   // Redirect authenticated users away from login/signup pages
   if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
