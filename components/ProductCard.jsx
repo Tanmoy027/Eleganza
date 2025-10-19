@@ -29,11 +29,10 @@ export default function ProductCard({ product }) {
             className="w-full h-80 md:h-96 object-cover group-hover:scale-105 transition-transform duration-300"
             onError={handleImageError}
           />
-          {product.isNew && (
-            <div className="absolute top-4 left-4 bg-black text-white px-3 py-1 text-xs font-medium">NEW</div>
-          )}
-          {product.isOffer && (
-            <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 text-xs font-medium">SALE</div>
+          {product.stock_quantity === 0 && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <span className="bg-white text-black px-3 py-1 text-sm font-medium">Out of Stock</span>
+            </div>
           )}
         </div>
       </Link>
@@ -45,20 +44,8 @@ export default function ProductCard({ product }) {
           </h3>
         </Link>
 
-        <div className="flex items-center space-x-1">
-          {[...Array(product.rating)].map((_, i) => (
-            <Star key={i} className="h-4 w-4 fill-current text-black" />
-          ))}
-          <span className="text-xs text-gray-500 ml-2">({product.reviews || product.rating})</span>
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium">${Number(product.price).toFixed(2)}</span>
-            {product.compare_at_price && product.compare_at_price > product.price && (
-              <span className="text-sm text-gray-400 line-through">${Number(product.compare_at_price).toFixed(2)}</span>
-            )}
-          </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm font-medium">${Number(product.price).toFixed(2)}</span>
         </div>
       </div>
     </div>

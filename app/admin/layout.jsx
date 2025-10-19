@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import Link from "next/link"
-import { Package, ShoppingCart, LayoutDashboard } from "lucide-react"
+import { Package, ShoppingCart, LayoutDashboard, MessageSquare } from "lucide-react"
 
 export default async function AdminLayout({ children }) {
   const supabase = await getSupabaseServerClient()
@@ -49,6 +49,13 @@ export default async function AdminLayout({ children }) {
             >
               <ShoppingCart className="w-5 h-5" />
               <span>Orders</span>
+            </Link>
+            <Link
+              href="/admin/reviews"
+              className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span>Reviews</span>
             </Link>
           </nav>
         </aside>
