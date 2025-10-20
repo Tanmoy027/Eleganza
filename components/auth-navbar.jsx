@@ -74,15 +74,13 @@ export default function AuthNavbar() {
                     {/* Mobile Menu Button */}
                     <button className="md:hidden" onClick={toggleMobileMenu}>
                         {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                    </button>
-
-                    {/* Left Navigation - Desktop */}
+                    </button>                    {/* Left Navigation - Desktop */}
                     <nav className="hidden md:flex space-x-6 text-xs font-medium uppercase">
                         <Link href="/" className="hover:text-gray-600 transition-colors">
-                            New In
+                            Home
                         </Link>
-                        <Link href="/dresses" className="hover:text-gray-600 transition-colors">
-                            Dresses
+                        <Link href="/offers" className="hover:text-gray-600 transition-colors">
+                            Offers
                         </Link>
                         <Link href="/occasions" className="hover:text-gray-600 transition-colors">
                             Occasions
@@ -143,102 +141,101 @@ export default function AuthNavbar() {
 
                 {/* Mobile Menu */}
                 {isMobileMenuOpen && (
-                    <div className="md:hidden border-t border-gray-200 py-4">
-                        <nav className="flex flex-col space-y-4 text-sm font-medium uppercase">
-                            <Link
-                                href="/"
-                                className="hover:text-gray-600 transition-colors"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                New In
-                            </Link>
-                            <Link
-                                href="/dresses"
-                                className="hover:text-gray-600 transition-colors"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                Dresses
-                            </Link>
-                            <Link
-                                href="/occasions"
-                                className="hover:text-gray-600 transition-colors"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                Occasions
-                            </Link>
-                            <Link
-                                href="/clothing"
-                                className="hover:text-gray-600 transition-colors"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                Clothing
-                            </Link>                            <ClientOnly fallback={null}>
-                                {user && (
-                                    <div className="pt-4 border-t border-gray-200">
+                    <div className="md:hidden border-t border-gray-200 py-4">                        <nav className="flex flex-col space-y-4 text-sm font-medium uppercase">
+                        <Link
+                            href="/"
+                            className="hover:text-gray-600 transition-colors"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                            Home
+                        </Link>
+                        <Link
+                            href="/offers"
+                            className="hover:text-gray-600 transition-colors"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                            Offers
+                        </Link>
+                        <Link
+                            href="/occasions"
+                            className="hover:text-gray-600 transition-colors"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                            Occasions
+                        </Link>
+                        <Link
+                            href="/clothing"
+                            className="hover:text-gray-600 transition-colors"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                            Clothing
+                        </Link><ClientOnly fallback={null}>
+                            {user && (
+                                <div className="pt-4 border-t border-gray-200">
+                                    <Link
+                                        href="/cart"
+                                        className="flex items-center space-x-2 hover:text-gray-600 transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <ShoppingCart className="w-4 h-4" />
+                                        <span>Cart</span>
+                                    </Link>                                        <Link
+                                        href="/wishlist"
+                                        className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <Heart className="w-4 h-4" />
+                                        <span>Wishlist</span>
+                                    </Link>
+                                    <Link
+                                        href="/orders"
+                                        className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <Package className="w-4 h-4" />
+                                        <span>My Orders</span>
+                                    </Link>
+                                    <Link
+                                        href="/account"
+                                        className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <User className="w-4 h-4" />
+                                        <span>Account</span>
+                                    </Link>
+                                    {profile?.role === 'admin' && (
                                         <Link
-                                            href="/cart"
-                                            className="flex items-center space-x-2 hover:text-gray-600 transition-colors"
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            <ShoppingCart className="w-4 h-4" />
-                                            <span>Cart</span>
-                                        </Link>                                        <Link
-                                            href="/wishlist"
-                                            className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            <Heart className="w-4 h-4" />
-                                            <span>Wishlist</span>
-                                        </Link>
-                                        <Link
-                                            href="/orders"
-                                            className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            <Package className="w-4 h-4" />
-                                            <span>My Orders</span>
-                                        </Link>
-                                        <Link
-                                            href="/account"
+                                            href="/admin"
                                             className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             <User className="w-4 h-4" />
-                                            <span>Account</span>
+                                            <span>Admin Dashboard</span>
                                         </Link>
-                                        {profile?.role === 'admin' && (
-                                            <Link
-                                                href="/admin"
-                                                className="flex items-center space-x-2 hover:text-gray-600 transition-colors mt-2"
-                                                onClick={() => setIsMobileMenuOpen(false)}
-                                            >
-                                                <User className="w-4 h-4" />
-                                                <span>Admin Dashboard</span>
-                                            </Link>
-                                        )}
-                                    </div>
-                                )}
+                                    )}
+                                </div>
+                            )}
 
-                                {!user && (
-                                    <div className="pt-4 border-t border-gray-200 space-y-2">
-                                        <Link
-                                            href="/login"
-                                            className="block text-center py-2 px-4 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            Login
-                                        </Link>
-                                        <Link
-                                            href="/signup"
-                                            className="block text-center py-2 px-4 border border-black rounded hover:bg-gray-50 transition-colors"
-                                            onClick={() => setIsMobileMenuOpen(false)}
-                                        >
-                                            Sign Up
-                                        </Link>
-                                    </div>
-                                )}
-                            </ClientOnly>
-                        </nav>
+                            {!user && (
+                                <div className="pt-4 border-t border-gray-200 space-y-2">
+                                    <Link
+                                        href="/login"
+                                        className="block text-center py-2 px-4 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        Login
+                                    </Link>
+                                    <Link
+                                        href="/signup"
+                                        className="block text-center py-2 px-4 border border-black rounded hover:bg-gray-50 transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        Sign Up
+                                    </Link>
+                                </div>
+                            )}
+                        </ClientOnly>
+                    </nav>
                     </div>
                 )}
             </div>

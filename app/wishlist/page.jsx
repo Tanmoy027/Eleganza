@@ -64,7 +64,7 @@ export default async function WishlistPage() {
                   </Link>
                   <p className="text-sm text-gray-600 mb-2 capitalize">{item.products.category}</p>
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold">${item.products.price}</p>
+                    <p className="font-semibold">৳{item.products.price}</p>
                     <button className="flex items-center space-x-1 text-sm bg-black text-white px-3 py-1.5 rounded hover:bg-gray-800 transition-colors">
                       <ShoppingBag className="w-4 h-4" />
                       <span>Add to Bag</span>

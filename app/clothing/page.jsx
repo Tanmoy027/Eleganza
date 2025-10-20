@@ -9,6 +9,7 @@ import { getProductMainImage, handleImageError } from "@/lib/image-utils"
 
 export default function ClothingPage() {
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [selectedClothingType, setSelectedClothingType] = useState("all")
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -31,8 +32,83 @@ export default function ClothingPage() {
     fetchProducts()
   }, [])
 
-  const filteredProducts =
-    selectedCategory === "all" ? products : products.filter((p) => p.category?.toLowerCase() === selectedCategory)
+  // Clothing types based on category (matching the product form structure)
+  const clothingTypes = {
+    men: [
+      { value: 'formal-shirt', label: 'Formal Shirt' },
+      { value: 'casual-shirt', label: 'Casual Shirt' },
+      { value: 'panjabi-kurta', label: 'Panjabi (Kurta)' },
+      { value: 't-shirts', label: 'T-Shirts' },
+      { value: 'polo-shirts', label: 'Polo Shirts' },
+      { value: 'pants', label: 'Pants' },
+      { value: 'trousers', label: 'Trousers' },
+      { value: 'jeans', label: 'Jeans' },
+      { value: 'denim', label: 'Denim' },
+      { value: 'mens-loungewear', label: 'Loungewear' },
+      { value: 'sleepwear', label: 'Sleepwear' },
+      { value: 'jacket', label: 'Jacket' },
+      { value: 'coat', label: 'Coat' },
+      { value: 'sweater', label: 'Sweater' },
+      { value: 'ethnic-outfits', label: 'Ethnic Outfits' },
+      { value: 'formal-suits', label: 'Formal Suits' },
+      { value: 'blazers', label: 'Blazers' }
+    ],
+    women: [
+      { value: 'saree', label: 'Saree' },
+      { value: 'salwar-kameez', label: 'Salwar-Kameez' },
+      { value: 'kurti', label: 'Kurti' },
+      { value: 'kurtas', label: 'Kurtas' },
+      { value: 'tops', label: 'Tops' },
+      { value: 'blouses', label: 'Blouses' },
+      { value: 'maxi-dresses', label: 'Maxi Dresses' },
+      { value: 'gowns', label: 'Gowns' },
+      { value: 'skirts', label: 'Skirts' },
+      { value: 'palazzos', label: 'Palazzos' },
+      { value: 'nightwear', label: 'Nightwear' },
+      { value: 'loungewear', label: 'Loungewear' },
+      { value: 'hijab', label: 'Hijab' },
+      { value: 'dupatta', label: 'Dupatta' },
+      { value: 'scarves', label: 'Scarves' },
+      { value: 'unstitched-cloth', label: 'Unstitched Cloth' },
+      { value: 'western-wear-jackets', label: 'Western Wear Jackets' },
+      { value: 'jumpsuits', label: 'Jumpsuits' }
+    ],
+    child: [
+      { value: 'boys-shirts', label: 'Boys Shirts' },
+      { value: 'girls-tops', label: 'Girls Tops' },
+      { value: 'kids-t-shirts', label: 'Kids T-Shirts' },
+      { value: 'boys-pants', label: 'Boys Pants' },
+      { value: 'girls-dresses', label: 'Girls Dresses' },
+      { value: 'kids-shorts', label: 'Kids Shorts' },
+      { value: 'school-uniforms', label: 'School Uniforms' },
+      { value: 'kids-ethnic-wear', label: 'Kids Ethnic Wear' },
+      { value: 'baby-rompers', label: 'Baby Rompers' },
+      { value: 'kids-sleepwear', label: 'Kids Sleepwear' },
+      { value: 'kids-jackets', label: 'Kids Jackets' },
+      { value: 'kids-traditional', label: 'Kids Traditional' },
+      { value: 'kids-casual', label: 'Kids Casual' },
+      { value: 'kids-formal', label: 'Kids Formal' }
+    ]
+  }
+
+  // Handle category change - reset clothing type when category changes
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category)
+    setSelectedClothingType("all") // Reset clothing type when category changes
+  }
+
+  // Filter products based on both category and clothing type
+  const filteredProducts = products.filter((product) => {
+    // First filter by category
+    const categoryMatch = selectedCategory === "all" || product.category?.toLowerCase() === selectedCategory
+
+    // Then filter by clothing type if a specific category is selected and clothing type is not "all"
+    const clothingTypeMatch = selectedCategory === "all" ||
+      selectedClothingType === "all" ||
+      product.clothing_type === selectedClothingType
+
+    return categoryMatch && clothingTypeMatch
+  })
 
   if (loading) {
     return (
@@ -46,7 +122,7 @@ export default function ClothingPage() {
     <div className="min-h-screen bg-white">
       {/* Top Banner */}
       <div className="bg-neutral-100 text-center py-2 text-xs font-medium">
-        <span>FREE DELIVERY ON ORDERS OVER £100 • EASY RETURNS</span>
+        <span>FREE DELIVERY ON ORDERS OVER ৳100 • EASY RETURNS</span>
       </div>
 
       {/* Main Content */}
@@ -60,37 +136,65 @@ export default function ClothingPage() {
           </p>
         </div>
 
-        {/* Filter Buttons */}
+        {/* Category Filter Buttons */}
         <div className="flex flex-wrap justify-center gap-2 mb-6 md:mb-8">
           <button
-            onClick={() => setSelectedCategory("all")}
+            onClick={() => handleCategoryChange("all")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "all" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             ALL CLOTHING
           </button>
           <button
-            onClick={() => setSelectedCategory("women")}
+            onClick={() => handleCategoryChange("women")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "women" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             WOMEN
           </button>
           <button
-            onClick={() => setSelectedCategory("men")}
+            onClick={() => handleCategoryChange("men")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "men" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             MEN
           </button>
           <button
-            onClick={() => setSelectedCategory("child")}
+            onClick={() => handleCategoryChange("child")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "child" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             CHILD
           </button>
         </div>
+
+        {/* Clothing Type Filter Buttons - Show only when a specific category is selected */}
+        {selectedCategory !== "all" && clothingTypes[selectedCategory] && (
+          <div className="mb-6 md:mb-8">
+            <h3 className="text-center text-sm font-medium text-gray-700 mb-4 uppercase">
+              {selectedCategory} Clothing Types
+            </h3>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => setSelectedClothingType("all")}
+                className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedClothingType === "all" ? "bg-gray-700 text-white" : "border border-gray-300 hover:bg-gray-50"
+                  }`}
+              >
+                ALL {selectedCategory.toUpperCase()}
+              </button>
+              {clothingTypes[selectedCategory].map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => setSelectedClothingType(type.value)}
+                  className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedClothingType === type.value ? "bg-gray-700 text-white" : "border border-gray-300 hover:bg-gray-50"
+                    }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Product Controls */}
         <div className="flex items-center justify-between mb-6 md:mb-8">
@@ -99,7 +203,15 @@ export default function ClothingPage() {
             <List className="w-5 h-5 text-gray-400" />
           </div>
 
-          <div className="text-sm text-gray-600">{filteredProducts.length} PRODUCTS</div>
+          <div className="text-sm text-gray-600">
+            {filteredProducts.length} PRODUCT{filteredProducts.length !== 1 ? 'S' : ''}
+            {selectedCategory !== "all" && (
+              <span className="ml-1 text-xs text-gray-500">
+                • {selectedCategory.toUpperCase()}
+                {selectedClothingType !== "all" && ` • ${clothingTypes[selectedCategory]?.find(t => t.value === selectedClothingType)?.label || selectedClothingType}`}
+              </span>
+            )}
+          </div>
 
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 cursor-pointer">
@@ -113,8 +225,9 @@ export default function ClothingPage() {
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 mb-12">
             {filteredProducts.map((product) => {
-              const hasDiscount = product.compare_at_price && product.compare_at_price > product.price
+              const hasDiscount = product.is_on_discount && product.discount_price && product.discount_percentage
               const mainImage = getProductMainImage(product)
+              const savings = hasDiscount ? (product.price - product.discount_price).toFixed(2) : 0
 
               return (
                 <div key={product.id} className="group">
@@ -129,24 +242,40 @@ export default function ClothingPage() {
                       />
                       {hasDiscount && (
                         <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 text-xs font-medium">
-                          SALE
+                          {product.discount_percentage}% OFF
                         </div>
                       )}
                     </div>
                   </Link>
                   <div className="text-center">
-                    <p className="text-xs text-gray-500 mb-1 uppercase">{product.category}</p>
+                    <div className="text-xs text-gray-500 mb-1 uppercase">
+                      {product.category}
+                      {product.clothing_type && selectedCategory !== "all" && (
+                        <span className="block text-gray-400 font-light">
+                          {clothingTypes[product.category]?.find(t => t.value === product.clothing_type)?.label || product.clothing_type}
+                        </span>
+                      )}
+                    </div>
                     <Link href={`/products/${product.id}`}>
                       <h3 className="text-xs md:text-sm font-medium mb-1 hover:text-gray-600 cursor-pointer line-clamp-2">
                         {product.name}
                       </h3>
                     </Link>
                     <div className="flex items-center justify-center space-x-2 mb-2">
-                      <p className="text-xs md:text-sm text-gray-900 font-medium">£{product.price}</p>
-                      {product.compare_at_price && (
-                        <p className="text-xs text-gray-400 line-through">£{product.compare_at_price}</p>
+                      {hasDiscount ? (
+                        <>
+                          <p className="text-xs md:text-sm text-red-600 font-bold">৳{product.discount_price}</p>
+                          <p className="text-xs text-gray-400 line-through">৳{product.price}</p>
+                        </>
+                      ) : (
+                        <p className="text-xs md:text-sm text-gray-900 font-medium">৳{product.price}</p>
                       )}
                     </div>
+                    {hasDiscount && (
+                      <p className="text-xs text-green-600 font-medium">
+                        Save ৳{savings} ({product.discount_percentage}% off)
+                      </p>
+                    )}
                   </div>
                 </div>
               )

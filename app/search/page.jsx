@@ -99,7 +99,7 @@ export default function SearchPage() {
                   <div className="p-4">
                     <h3 className="font-medium mb-1">{product.name}</h3>
                     <p className="text-sm text-gray-600 mb-2 capitalize">{product.category}</p>
-                    <p className="font-semibold">${product.price}</p>
+                    <p className="font-semibold">৳{product.price}</p>
                   </div>
                 </Link>
               ))}

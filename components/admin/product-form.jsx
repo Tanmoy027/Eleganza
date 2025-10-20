@@ -22,6 +22,9 @@ export default function ProductForm({ product }) {
     name: product?.name || "",
     description: product?.description || "",
     price: product?.price || "",
+    discount_price: product?.discount_price || "",
+    discount_percentage: product?.discount_percentage || "",
+    is_on_discount: product?.is_on_discount || false,
     category: product?.category || "",
     clothing_type: product?.clothing_type || "",
     occasion: product?.occasion || "",
@@ -100,6 +103,58 @@ export default function ProductForm({ product }) {
       ...formData,
       category: value,
       clothing_type: "" // Reset clothing type when category changes
+    })
+  }
+
+  // Handle discount calculations
+  const handlePriceChange = (value) => {
+    const price = parseFloat(value) || 0
+    const discountPercentage = parseFloat(formData.discount_percentage) || 0
+
+    let discountPrice = ""
+    if (price > 0 && discountPercentage > 0) {
+      discountPrice = (price - (price * discountPercentage / 100)).toFixed(2)
+    }
+
+    setFormData({
+      ...formData,
+      price: value,
+      discount_price: discountPrice,
+      is_on_discount: discountPercentage > 0
+    })
+  }
+
+  const handleDiscountPercentageChange = (value) => {
+    const percentage = parseFloat(value) || 0
+    const price = parseFloat(formData.price) || 0
+
+    let discountPrice = ""
+    if (price > 0 && percentage > 0) {
+      discountPrice = (price - (price * percentage / 100)).toFixed(2)
+    }
+
+    setFormData({
+      ...formData,
+      discount_percentage: value,
+      discount_price: discountPrice,
+      is_on_discount: percentage > 0
+    })
+  }
+
+  const handleDiscountPriceChange = (value) => {
+    const discountPrice = parseFloat(value) || 0
+    const price = parseFloat(formData.price) || 0
+
+    let percentage = ""
+    if (price > 0 && discountPrice > 0 && discountPrice < price) {
+      percentage = Math.round(((price - discountPrice) / price) * 100)
+    }
+
+    setFormData({
+      ...formData,
+      discount_price: value,
+      discount_percentage: percentage.toString(),
+      is_on_discount: discountPrice > 0 && discountPrice < price
     })
   }
 
@@ -271,6 +326,9 @@ export default function ProductForm({ product }) {
       const productData = {
         ...formData,
         price: Number.parseFloat(formData.price),
+        discount_price: formData.discount_price ? Number.parseFloat(formData.discount_price) : null,
+        discount_percentage: formData.discount_percentage ? Number.parseInt(formData.discount_percentage) : null,
+        is_on_discount: formData.is_on_discount,
         stock_quantity: Number.parseInt(formData.stock_quantity) || 0,
         sizes: formData.sizes.split(",").map((s) => s.trim()).filter(s => s),
         colors: formData.colors.split(",").map((c) => c.trim()).filter(c => c),
@@ -364,9 +422,40 @@ export default function ProductForm({ product }) {
                 type="number"
                 step="0.01"
                 value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                onChange={(e) => handlePriceChange(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="discount_percentage">Discount Percentage (%)</Label>
+              <Input
+                id="discount_percentage"
+                type="number"
+                min="0"
+                max="100"
+                value={formData.discount_percentage}
+                onChange={(e) => handleDiscountPercentageChange(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="discount_price">Discount Price ($)</Label>
+              <Input
+                id="discount_price"
+                type="number"
+                step="0.01"
+                value={formData.discount_price}
+                onChange={(e) => handleDiscountPriceChange(e.target.value)}
+                placeholder="Auto-calculated"
+              />
+              {formData.is_on_discount && (
+                <p className="text-sm text-green-600">
+                  Save ৳{((parseFloat(formData.price) || 0) - (parseFloat(formData.discount_price) || 0)).toFixed(2)}
+                  ({formData.discount_percentage}% off)
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

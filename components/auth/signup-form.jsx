@@ -37,17 +37,29 @@ export function SignupForm() {
 
     setLoading(true)
 
-    const { error } = await signUp(email, password, fullName)
+    try {
+      const { data, error } = await signUp(email, password, fullName)
 
-    if (error) {
-      setError(error.message)
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+        return
+      }
+
+      // Only show success if we actually have a valid user creation
+      if (data?.user) {
+        setSuccess(true)
+        setLoading(false)
+        setTimeout(() => {
+          router.push("/login")
+        }, 2000)
+      } else {
+        setError("Failed to create account. Please try again.")
+        setLoading(false)
+      }
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.")
       setLoading(false)
-    } else {
-      setSuccess(true)
-      setLoading(false)
-      setTimeout(() => {
-        router.push("/login")
-      }, 2000)
     }
   }
 

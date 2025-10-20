@@ -23,10 +23,10 @@ export default function Navbar() {
           {/* Left Navigation - Desktop */}
           <nav className="hidden md:flex space-x-6 text-xs font-medium uppercase">
             <Link href="/" className="hover:text-gray-600 transition-colors">
-              New In
+              Home
             </Link>
-            <Link href="/dresses" className="hover:text-gray-600 transition-colors">
-              Dresses
+            <Link href="/offers" className="hover:text-gray-600 transition-colors">
+              Offers
             </Link>
             <Link href="/occasions" className="hover:text-gray-600 transition-colors">
               Occasions
@@ -71,14 +71,14 @@ export default function Navbar() {
                 className="hover:text-gray-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                New In
+                Home
               </Link>
               <Link
-                href="/dresses"
+                href="/offers"
                 className="hover:text-gray-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Dresses
+                Offers
               </Link>
               <Link
                 href="/occasions"

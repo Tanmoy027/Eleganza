@@ -9,6 +9,8 @@ import { getProductMainImage, handleImageError } from "@/lib/image-utils"
 
 export default function OccasionsPage() {
   const [selectedOccasion, setSelectedOccasion] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [selectedClothingType, setSelectedClothingType] = useState("all")
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -31,10 +33,93 @@ export default function OccasionsPage() {
     fetchProducts()
   }, [])
 
-  const filteredProducts =
-    selectedOccasion === ""
-      ? products
-      : products.filter((p) => p.occasion?.toLowerCase() === selectedOccasion.toLowerCase())
+  // Clothing types based on category (matching the product form structure)
+  const clothingTypes = {
+    men: [
+      { value: 'formal-shirt', label: 'Formal Shirt' },
+      { value: 'casual-shirt', label: 'Casual Shirt' },
+      { value: 'panjabi-kurta', label: 'Panjabi (Kurta)' },
+      { value: 't-shirts', label: 'T-Shirts' },
+      { value: 'polo-shirts', label: 'Polo Shirts' },
+      { value: 'pants', label: 'Pants' },
+      { value: 'trousers', label: 'Trousers' },
+      { value: 'jeans', label: 'Jeans' },
+      { value: 'denim', label: 'Denim' },
+      { value: 'mens-loungewear', label: 'Loungewear' },
+      { value: 'sleepwear', label: 'Sleepwear' },
+      { value: 'jacket', label: 'Jacket' },
+      { value: 'coat', label: 'Coat' },
+      { value: 'sweater', label: 'Sweater' },
+      { value: 'ethnic-outfits', label: 'Ethnic Outfits' },
+      { value: 'formal-suits', label: 'Formal Suits' },
+      { value: 'blazers', label: 'Blazers' }
+    ],
+    women: [
+      { value: 'saree', label: 'Saree' },
+      { value: 'salwar-kameez', label: 'Salwar-Kameez' },
+      { value: 'kurti', label: 'Kurti' },
+      { value: 'kurtas', label: 'Kurtas' },
+      { value: 'tops', label: 'Tops' },
+      { value: 'blouses', label: 'Blouses' },
+      { value: 'maxi-dresses', label: 'Maxi Dresses' },
+      { value: 'gowns', label: 'Gowns' },
+      { value: 'skirts', label: 'Skirts' },
+      { value: 'palazzos', label: 'Palazzos' },
+      { value: 'nightwear', label: 'Nightwear' },
+      { value: 'loungewear', label: 'Loungewear' },
+      { value: 'hijab', label: 'Hijab' },
+      { value: 'dupatta', label: 'Dupatta' },
+      { value: 'scarves', label: 'Scarves' },
+      { value: 'unstitched-cloth', label: 'Unstitched Cloth' },
+      { value: 'western-wear-jackets', label: 'Western Wear Jackets' },
+      { value: 'jumpsuits', label: 'Jumpsuits' }
+    ],
+    child: [
+      { value: 'boys-shirts', label: 'Boys Shirts' },
+      { value: 'girls-tops', label: 'Girls Tops' },
+      { value: 'kids-t-shirts', label: 'Kids T-Shirts' },
+      { value: 'boys-pants', label: 'Boys Pants' },
+      { value: 'girls-dresses', label: 'Girls Dresses' },
+      { value: 'kids-shorts', label: 'Kids Shorts' },
+      { value: 'school-uniforms', label: 'School Uniforms' },
+      { value: 'kids-ethnic-wear', label: 'Kids Ethnic Wear' },
+      { value: 'baby-rompers', label: 'Baby Rompers' },
+      { value: 'kids-sleepwear', label: 'Kids Sleepwear' },
+      { value: 'kids-jackets', label: 'Kids Jackets' },
+      { value: 'kids-traditional', label: 'Kids Traditional' },
+      { value: 'kids-casual', label: 'Kids Casual' },
+      { value: 'kids-formal', label: 'Kids Formal' }
+    ]
+  }
+
+  // Handle occasion change - reset category and clothing type when occasion changes
+  const handleOccasionChange = (occasion) => {
+    setSelectedOccasion(occasion)
+    setSelectedCategory("all")
+    setSelectedClothingType("all")
+  }
+
+  // Handle category change - reset clothing type when category changes
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category)
+    setSelectedClothingType("all")
+  }
+
+  // Filter products based on occasion, category, and clothing type
+  const filteredProducts = products.filter((product) => {
+    // First filter by occasion
+    const occasionMatch = selectedOccasion === "" || product.occasion?.toLowerCase() === selectedOccasion.toLowerCase()
+
+    // Then filter by category
+    const categoryMatch = selectedCategory === "all" || product.category?.toLowerCase() === selectedCategory
+
+    // Then filter by clothing type if a specific category is selected and clothing type is not "all"
+    const clothingTypeMatch = selectedCategory === "all" ||
+      selectedClothingType === "all" ||
+      product.clothing_type === selectedClothingType
+
+    return occasionMatch && categoryMatch && clothingTypeMatch
+  })
 
   if (loading) {
     return (
@@ -48,7 +133,7 @@ export default function OccasionsPage() {
     <div className="min-h-screen bg-white">
       {/* Top Banner */}
       <div className="bg-neutral-100 text-center py-2 text-xs font-medium">
-        <span>FREE DELIVERY ON ORDERS OVER £100 • EASY RETURNS</span>
+        <span>FREE DELIVERY ON ORDERS OVER ৳100 • EASY RETURNS</span>
       </div>
 
       {/* Main Content */}
@@ -62,72 +147,146 @@ export default function OccasionsPage() {
           </p>
         </div>
 
-        {/* Filter Buttons for Occasions */}
+        {/* Occasion Filter Buttons */}
         <div className="flex flex-wrap justify-center gap-2 mb-6 md:mb-8">
           <button
-            onClick={() => setSelectedOccasion("")}
+            onClick={() => handleOccasionChange("")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             ALL OCCASIONS
           </button>
           <button
-            onClick={() => setSelectedOccasion("wedding")}
+            onClick={() => handleOccasionChange("wedding")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "wedding" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             WEDDING
           </button>
           <button
-            onClick={() => setSelectedOccasion("party")}
+            onClick={() => handleOccasionChange("party")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "party" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             PARTY
           </button>
           <button
-            onClick={() => setSelectedOccasion("casual")}
+            onClick={() => handleOccasionChange("casual")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "casual" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             CASUAL
           </button>
           <button
-            onClick={() => setSelectedOccasion("formal")}
+            onClick={() => handleOccasionChange("formal")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "formal" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             FORMAL
           </button>
           <button
-            onClick={() => setSelectedOccasion("traditional")}
+            onClick={() => handleOccasionChange("traditional")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "traditional" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             TRADITIONAL
           </button>
           <button
-            onClick={() => setSelectedOccasion("puja")}
+            onClick={() => handleOccasionChange("puja")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "puja" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             PUJA
           </button>
           <button
-            onClick={() => setSelectedOccasion("eid")}
+            onClick={() => handleOccasionChange("eid")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "eid" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             EID
           </button>
           <button
-            onClick={() => setSelectedOccasion("christmas")}
+            onClick={() => handleOccasionChange("christmas")}
             className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "christmas" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
               }`}
           >
             CHRISTMAS
           </button>
+          <button
+            onClick={() => handleOccasionChange("sports")}
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedOccasion === "sports" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            SPORTS
+          </button>
         </div>
+
+        {/* Category Filter Buttons - Show only when a specific occasion is selected */}
+        {selectedOccasion !== "" && (
+          <div className="mb-6 md:mb-8">
+            <h3 className="text-center text-sm font-medium text-gray-700 mb-4 uppercase">
+              {selectedOccasion} by Category
+            </h3>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => handleCategoryChange("all")}
+                className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "all" ? "bg-gray-700 text-white" : "border border-gray-300 hover:bg-gray-50"
+                  }`}
+              >
+                ALL
+              </button>
+              <button
+                onClick={() => handleCategoryChange("women")}
+                className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "women" ? "bg-gray-700 text-white" : "border border-gray-300 hover:bg-gray-50"
+                  }`}
+              >
+                WOMEN
+              </button>
+              <button
+                onClick={() => handleCategoryChange("men")}
+                className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "men" ? "bg-gray-700 text-white" : "border border-gray-300 hover:bg-gray-50"
+                  }`}
+              >
+                MEN
+              </button>
+              <button
+                onClick={() => handleCategoryChange("child")}
+                className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "child" ? "bg-gray-700 text-white" : "border border-gray-300 hover:bg-gray-50"
+                  }`}
+              >
+                CHILD
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Clothing Type Filter Buttons - Show only when a specific category is selected */}
+        {selectedOccasion !== "" && selectedCategory !== "all" && clothingTypes[selectedCategory] && (
+          <div className="mb-6 md:mb-8">
+            <h3 className="text-center text-sm font-medium text-gray-700 mb-4 uppercase">
+              {selectedCategory} {selectedOccasion} Clothing Types
+            </h3>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => setSelectedClothingType("all")}
+                className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedClothingType === "all" ? "bg-gray-600 text-white" : "border border-gray-300 hover:bg-gray-50"
+                  }`}
+              >
+                ALL {selectedCategory.toUpperCase()}
+              </button>
+              {clothingTypes[selectedCategory].map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => setSelectedClothingType(type.value)}
+                  className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedClothingType === type.value ? "bg-gray-600 text-white" : "border border-gray-300 hover:bg-gray-50"
+                    }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Product Controls */}
         <div className="flex items-center justify-between mb-6 md:mb-8">
@@ -136,7 +295,16 @@ export default function OccasionsPage() {
             <List className="w-5 h-5 text-gray-400" />
           </div>
 
-          <div className="text-sm text-gray-600">{filteredProducts.length} PRODUCTS</div>
+          <div className="text-sm text-gray-600">
+            {filteredProducts.length} PRODUCT{filteredProducts.length !== 1 ? 'S' : ''}
+            {selectedOccasion !== "" && (
+              <span className="ml-1 text-xs text-gray-500">
+                • {selectedOccasion.toUpperCase()}
+                {selectedCategory !== "all" && ` • ${selectedCategory.toUpperCase()}`}
+                {selectedCategory !== "all" && selectedClothingType !== "all" && ` • ${clothingTypes[selectedCategory]?.find(t => t.value === selectedClothingType)?.label || selectedClothingType}`}
+              </span>
+            )}
+          </div>
 
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 cursor-pointer">
@@ -172,15 +340,24 @@ export default function OccasionsPage() {
                     </div>
                   </Link>
                   <div className="text-center">
+                    <div className="text-xs text-gray-500 mb-1 uppercase">
+                      {product.occasion && <span>{product.occasion}</span>}
+                      {product.category && <span className="block">{product.category}</span>}
+                      {product.clothing_type && selectedCategory !== "all" && (
+                        <span className="block text-gray-400 font-light">
+                          {clothingTypes[product.category]?.find(t => t.value === product.clothing_type)?.label || product.clothing_type}
+                        </span>
+                      )}
+                    </div>
                     <Link href={`/products/${product.id}`}>
                       <h3 className="text-xs md:text-sm font-medium mb-1 hover:text-gray-600 cursor-pointer line-clamp-2">
                         {product.name}
                       </h3>
                     </Link>
                     <div className="flex items-center justify-center space-x-2 mb-2">
-                      <p className="text-xs md:text-sm text-gray-900 font-medium">£{product.price}</p>
+                      <p className="text-xs md:text-sm text-gray-900 font-medium">৳{product.price}</p>
                       {product.compare_at_price && (
-                        <p className="text-xs text-gray-400 line-through">£{product.compare_at_price}</p>
+                        <p className="text-xs text-gray-400 line-through">৳{product.compare_at_price}</p>
                       )}
                     </div>
                   </div>
