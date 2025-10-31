@@ -130,6 +130,8 @@ export function ProductReviews({ productId }) {
             }
 
             let result
+            let reviewId = null
+
             if (editing && userReview) {
                 // Update existing review
                 result = await supabase
@@ -140,11 +142,21 @@ export function ProductReviews({ productId }) {
                         updated_at: new Date().toISOString()
                     })
                     .eq("id", userReview.id)
+                    .select()
+
+                if (result.data && result.data.length > 0) {
+                    reviewId = result.data[0].id
+                }
             } else {
                 // Insert new review
                 result = await supabase
                     .from("product_reviews")
                     .insert(reviewData)
+                    .select()
+
+                if (result.data && result.data.length > 0) {
+                    reviewId = result.data[0].id
+                }
             }
 
             if (result.error) {
@@ -155,6 +167,26 @@ export function ProductReviews({ productId }) {
                     alert("Error submitting review. Please try again.")
                 }
             } else {
+                // Send admin notification email for new reviews (not edits)
+                if (!editing && reviewId) {
+                    try {
+                        await fetch('/api/reviews/notify-admin', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                reviewId: reviewId,
+                                productId: productId,
+                                userId: user.id
+                            })
+                        })
+                    } catch (emailError) {
+                        console.error("Error sending admin notification:", emailError)
+                        // Don't show error to user as review was still submitted successfully
+                    }
+                }
+
                 alert(editing ? "Review updated successfully!" : "Review submitted successfully!")
                 setShowReviewForm(false)
                 setEditing(false)
