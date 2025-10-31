@@ -153,6 +153,9 @@ export function CheckoutForm({ cartItems, total }) {
           `Pay ৳${total.toFixed(2)} with Stripe`
         )}
       </Button>
+      <div className="text-center text-sm text-muted-foreground">
+        Prefer Cash on Delivery? <a href="/checkout/cod" className="underline">Place COD order</a> · Want to send a gift? <a href="/checkout/gift" className="underline">Go to Gift Checkout</a>
+      </div>
     </form>
   )
 }

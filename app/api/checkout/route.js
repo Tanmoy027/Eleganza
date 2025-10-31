@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(request) {
   try {
-    const { orderId, cartItems, total, shippingAddress } = await request.json()
+    const { orderId, cartItems, total, shippingAddress, isGift } = await request.json()
 
     console.log("Checkout request data:", { orderId, cartItems: cartItems.length, total })
 
@@ -58,6 +58,7 @@ export async function POST(request) {
       metadata: {
         orderId: orderId.toString(),
         userId: user.id,
+        isGift: isGift ? "true" : "false",
       },
     })
 

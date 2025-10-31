@@ -41,6 +41,7 @@ export async function POST(request) {
                 const session = event.data.object
                 const orderId = session.metadata.orderId
                 const sessionId = session.id
+                const isGift = session.metadata?.isGift === "true"
 
                 console.log(`Processing payment for order: ${orderId}, session: ${sessionId}`)
                 console.log("Session payment status:", session.payment_status)
@@ -96,7 +97,7 @@ export async function POST(request) {
                             .insert({
                                 order_id: orderData.id,
                                 status: "pending",
-                                message: "Order created and payment received. Awaiting admin confirmation."
+                                message: isGift ? "Gift order created and payment received. Awaiting admin confirmation." : "Order created and payment received. Awaiting admin confirmation."
                             })
 
                         console.log("📧 Sending email notifications...")

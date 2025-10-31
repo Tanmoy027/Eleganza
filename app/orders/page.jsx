@@ -156,7 +156,7 @@ export default async function OrdersPage() {
                                                 <div>
                                                     <span className="font-medium text-gray-600">Payment Method:</span>
                                                     <span className="ml-2 capitalize">
-                                                        {order.payment_method || 'Stripe'}
+                                                        {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Stripe'}
                                                     </span>
                                                 </div>
                                                 <div>
@@ -172,12 +172,12 @@ export default async function OrdersPage() {
                                                 <div>
                                                     <span className="font-medium text-gray-600">Shipping Address:</span>
                                                     <div className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                                                        <p className="font-medium">{order.shipping_address.fullName}</p>
-                                                        <p>{order.shipping_address.address}</p>
+                                                        <p className="font-medium">{order.shipping_address.fullName || order.shipping_address.senderName || order.shipping_address.recipientName}</p>
+                                                        <p>{order.shipping_address.address || order.shipping_address.recipientAddress}</p>
                                                         <p>
-                                                            {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zipCode}
+                                                            {(order.shipping_address.city || order.shipping_address.recipientCity)}, {(order.shipping_address.state || order.shipping_address.recipientState)} {(order.shipping_address.zipCode || order.shipping_address.recipientZip)}
                                                         </p>
-                                                        {order.shipping_address.phone && <p>Phone: {order.shipping_address.phone}</p>}
+                                                        {(order.shipping_address.phone || order.shipping_address.senderPhone || order.shipping_address.recipientPhone) && <p>Phone: {order.shipping_address.phone || order.shipping_address.senderPhone || order.shipping_address.recipientPhone}</p>}
                                                     </div>
                                                 </div>
                                             )}

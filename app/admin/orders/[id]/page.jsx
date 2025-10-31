@@ -9,20 +9,25 @@ import OrderStatusUpdate from "@/components/admin/order-status-update"
 export const revalidate = 0
 
 export default async function OrderDetailPage({ params }) {
-  const cookieStore = cookies()
+  const { id } = await params
+  const cookieStore = await cookies()
 
-  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-    cookies: {
-      get(name) {
-        return cookieStore.get(name)?.value
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value
+        },
       },
     },
-  })
+  )
 
   const { data: order } = await supabase
     .from("orders")
     .select("*, profiles(full_name, email)")
-    .eq("id", params.id)
+    .eq("id", id)
     .single()
 
   if (!order) {
@@ -32,20 +37,26 @@ export default async function OrderDetailPage({ params }) {
   const { data: orderItems } = await supabase
     .from("order_items")
     .select("*, products(name, image_url)")
-    .eq("order_id", params.id)
+    .eq("order_id", id)
 
   const { data: tracking } = await supabase
     .from("order_tracking")
     .select("*")
-    .eq("order_id", params.id)
+    .eq("order_id", id)
     .order("created_at", { ascending: false })
+
+  const addr = order?.shipping_address || {}
+  const isGift = !!addr?.recipientName
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Order Details</h1>
+      <h1 className="text-3xl font-bold flex items-center gap-3">
+        Order Details
+        {isGift && <Badge variant="secondary">Gift</Badge>}
+      </h1>
 
       {/* Order Status Update */}
-      <OrderStatusUpdate orderId={params.id} currentStatus={order.status} />
+      <OrderStatusUpdate orderId={id} currentStatus={order.status} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Order Info */}
@@ -67,41 +78,72 @@ export default async function OrderDetailPage({ params }) {
               <Badge variant={order.payment_status === "paid" ? "default" : "secondary"}>{order.payment_status}</Badge>
             </div>
             <div>
+              <p className="text-sm text-gray-600">Payment Method</p>
+              <p className="font-medium">{order.payment_method === 'cod' ? 'Cash on Delivery' : 'Stripe'}</p>
+            </div>
+            <div>
               <p className="text-sm text-gray-600">Total Amount</p>
-              <p className="font-medium text-lg">৳{order.total_amount.toFixed(2)}</p>
+              <p className="font-medium text-lg">৳{Number(order.total_amount || 0).toFixed(2)}</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Customer Info */}
+        {/* Customer / Address Info */}
         <Card>
           <CardHeader>
-            <CardTitle>Customer Information</CardTitle>
+            <CardTitle>Shipping Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-gray-600">Name</p>
-              <p className="font-medium">{order.profiles?.full_name || "N/A"}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Email</p>
-              <p className="font-medium">{order.profiles?.email || "N/A"}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Shipping Address</p>
-              <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">
-                {typeof order.shipping_address === 'object' ? (
-                  <>
-                    <p className="font-medium">{order.shipping_address.fullName}</p>
-                    <p>{order.shipping_address.address}</p>
-                    <p>{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zipCode}</p>
-                    {order.shipping_address.phone && <p>Phone: {order.shipping_address.phone}</p>}
-                  </>
-                ) : (
-                  <p className="font-medium">{order.shipping_address}</p>
-                )}
+              <p className="text-sm text-gray-600">Customer</p>
+              <div>
+                <p className="font-medium">{order.profiles?.full_name || "N/A"}</p>
+                <p className="text-sm text-gray-600">{order.profiles?.email || "N/A"}</p>
               </div>
             </div>
+
+            {!isGift && (
+              <div>
+                <p className="text-sm text-gray-600">Shipping Address</p>
+                <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">
+                  {typeof order.shipping_address === 'object' ? (
+                    <>
+                      <p className="font-medium">{addr.fullName}</p>
+                      <p>{addr.address}</p>
+                      <p>{addr.city}, {addr.state} {addr.zipCode}</p>
+                      {addr.phone && <p>Phone: {addr.phone}</p>}
+                    </>
+                  ) : (
+                    <p className="font-medium">{order.shipping_address}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isGift && (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600">Recipient</p>
+                  <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">
+                    <p className="font-medium">{addr.recipientName}</p>
+                    <p>{addr.recipientAddress}</p>
+                    <p>{addr.recipientCity}, {addr.recipientState} {addr.recipientZip}</p>
+                    {addr.recipientPhone && <p>Phone: {addr.recipientPhone}</p>}
+                    {addr.giftMessage && (
+                      <p className="mt-2 text-gray-700"><span className="font-medium">Gift Message:</span> {addr.giftMessage}</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Sender</p>
+                  <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">
+                    <p className="font-medium">{addr.senderName}</p>
+                    {addr.senderEmail && <p>{addr.senderEmail}</p>}
+                    {addr.senderPhone && <p>Phone: {addr.senderPhone}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -123,11 +165,15 @@ export default async function OrderDetailPage({ params }) {
                 <div className="flex-1">
                   <p className="font-medium">{item.products?.name}</p>
                   <p className="text-sm text-gray-600">
-                    Size: {item.size} | Color: {item.color}
+                    Qty: {item.quantity}
+                    {item.size && ` | Size: ${item.size}`}
+                    {item.color && ` | Color: ${item.color}`}
                   </p>
-                  <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
                 </div>
-                <p className="font-medium">৳{item.price.toFixed(2)}</p>
+                <div className="text-right">
+                  <p className="font-medium">৳{Number(item.subtotal || 0).toFixed(2)}</p>
+                  <p className="text-xs text-gray-500">৳{Number(item.product_price || 0).toFixed(2)} each</p>
+                </div>
               </div>
             ))}
           </div>
@@ -144,8 +190,7 @@ export default async function OrderDetailPage({ params }) {
             <div className="space-y-6">
               {tracking.map((track, index) => (
                 <div key={track.id} className="flex items-start space-x-4">
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${index === 0 ? 'bg-blue-600' : 'bg-gray-400'
-                    }`}>
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${index === 0 ? 'bg-blue-600' : 'bg-gray-400'}`}>
                     {index + 1}
                   </div>
                   <div className="flex-1">
@@ -159,13 +204,11 @@ export default async function OrderDetailPage({ params }) {
                           month: "short",
                           day: "numeric",
                           hour: "2-digit",
-                          minute: "2-digit"
+                          minute: "2-digit",
                         })}
                       </p>
                     </div>
-                    {track.message && (
-                      <p className="text-sm text-gray-600">{track.message}</p>
-                    )}
+                    {track.message && <p className="text-sm text-gray-600">{track.message}</p>}
                   </div>
                 </div>
               ))}

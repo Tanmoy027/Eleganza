@@ -59,6 +59,12 @@ export default async function CartPage() {
               <Button asChild className="w-full" size="lg">
                 <Link href="/checkout">Proceed to Checkout</Link>
               </Button>
+              <Button asChild variant="secondary" className="w-full">
+                <Link href="/checkout/cod">Cash on Delivery</Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/checkout/gift">Send as Gift</Link>
+              </Button>
               <Button asChild variant="outline" className="w-full bg-transparent">
                 <Link href="/products">Continue Shopping</Link>
               </Button>
