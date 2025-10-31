@@ -7,6 +7,7 @@ import { CheckCircle } from "lucide-react"
 import { clearCart } from "@/lib/cart-server"
 import Stripe from "stripe"
 import { getSupabaseServiceRoleClient } from "@/lib/supabase/service"
+import { sendOrderConfirmationEmail, sendNewOrderNotificationToAdmin } from "@/lib/email-service"
 
 export default async function CheckoutSuccessPage({ searchParams }) {
   const params = await searchParams
@@ -63,7 +64,7 @@ export default async function CheckoutSuccessPage({ searchParams }) {
   // If we found the order but it's not paid yet, try to update it
   // OR if no order found at all, try to update payment status
   if ((updatedOrder && updatedOrder.payment_status !== "paid") || !updatedOrder) {
-    console.log("Attempting to update payment status...")
+    console.log("🔄 Attempting to update payment status...")
     console.log("Current order status:", updatedOrder?.payment_status, updatedOrder?.status)
 
     try {
@@ -114,7 +115,43 @@ export default async function CheckoutSuccessPage({ searchParams }) {
 
         if (finalUpdated) {
           updatedOrder = finalUpdated
-          console.log("Order updated successfully:", updatedOrder)
+          console.log("✅ Order updated successfully:", updatedOrder)
+
+          // Send email notifications since webhook might not have been triggered
+          try {
+            console.log("📧 Sending email notifications from success page...")
+
+            // Get full order details with items and profile for emails
+            const { data: fullOrderData } = await serviceClient
+              .from("orders")
+              .select(`
+                *,
+                order_items (*),
+                profiles (*)
+              `)
+              .eq("id", finalUpdated.id)
+              .single()
+
+            if (fullOrderData) {
+              // Send customer confirmation email
+              if (fullOrderData.profiles?.email) {
+                console.log("📧 Sending customer confirmation email...")
+                const customerEmailResult = await sendOrderConfirmationEmail(fullOrderData, fullOrderData.profiles.email)
+                console.log("📧 Customer email result:", customerEmailResult)
+              }
+
+              // Send admin notification email
+              console.log("📧 Sending admin notification email...")
+              const adminEmailResult = await sendNewOrderNotificationToAdmin(
+                fullOrderData,
+                fullOrderData.order_items || [],
+                fullOrderData.profiles
+              )
+              console.log("📧 Admin email result:", adminEmailResult)
+            }
+          } catch (emailError) {
+            console.error("❌ Error sending emails from success page:", emailError)
+          }
         } else {
           console.warn("No order updated after verification; relying on webhook or later sync")
         }

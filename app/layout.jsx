@@ -8,7 +8,7 @@ import ErrorBoundary from "@/components/error-boundary"
 export const metadata = {
   title: "Eleganza - Premium Fashion",
   description: "Discover the latest in fashion at Eleganza",
-  generator: "v0.app",
+  
 }
 
 export default function RootLayout({ children }) {

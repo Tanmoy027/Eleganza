@@ -150,7 +150,7 @@ export function CheckoutForm({ cartItems, total }) {
             Processing...
           </>
         ) : (
-          `Pay $${total.toFixed(2)} with Stripe`
+          `Pay ৳${total.toFixed(2)} with Stripe`
         )}
       </Button>
     </form>

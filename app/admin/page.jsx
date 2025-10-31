@@ -48,7 +48,7 @@ export default async function AdminDashboard() {
             <DollarSign className="w-4 h-4 text-gray-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">৳{totalRevenue.toFixed(2)}</div>
           </CardContent>
         </Card>
 
@@ -77,7 +77,7 @@ export default async function AdminDashboard() {
                   <p className="text-sm text-gray-600">Order #{order.id.slice(0, 8)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium">${order.total_amount.toFixed(2)}</p>
+                  <p className="font-medium">৳{order.total_amount.toFixed(2)}</p>
                   <p className="text-sm text-gray-600">{order.order_status}</p>
                 </div>
               </div>

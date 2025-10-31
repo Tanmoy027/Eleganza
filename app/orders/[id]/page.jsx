@@ -175,12 +175,12 @@ export default async function OrderDetailPage({ params }) {
                                                         {item.color && <span>Color: {item.color}</span>}
                                                     </div>
                                                     <p className="text-sm text-gray-600 mt-1">
-                                                        ${parseFloat(item.product_price || 0).toFixed(2)} each
+                                                        ৳{parseFloat(item.product_price || 0).toFixed(2)} each
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="font-bold text-gray-900">
-                                                        ${parseFloat(item.subtotal || 0).toFixed(2)}
+                                                        ৳{parseFloat(item.subtotal || 0).toFixed(2)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -200,23 +200,22 @@ export default async function OrderDetailPage({ params }) {
                                     Order Summary
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex justify-between">
-                                    <span>Subtotal:</span>
-                                    <span>${parseFloat(order.total_amount || 0).toFixed(2)}</span>
-                                </div>
+                            <CardContent className="space-y-4">                                <div className="flex justify-between">
+                                <span>Subtotal:</span>
+                                <span>৳{parseFloat(order.total_amount || 0).toFixed(2)}</span>
+                            </div>
                                 <div className="flex justify-between">
                                     <span>Shipping:</span>
                                     <span>Free</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Tax:</span>
-                                    <span>$0.00</span>
+                                    <span>৳0.00</span>
                                 </div>
                                 <Separator />
                                 <div className="flex justify-between font-bold text-lg">
                                     <span>Total:</span>
-                                    <span>${parseFloat(order.total_amount || 0).toFixed(2)}</span>
+                                    <span>৳{parseFloat(order.total_amount || 0).toFixed(2)}</span>
                                 </div>
                                 <div className="pt-2">
                                     <p className="text-sm text-gray-600">Payment Status:</p>

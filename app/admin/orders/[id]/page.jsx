@@ -65,7 +65,7 @@ export default async function OrderDetailPage({ params }) {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Amount</p>
-              <p className="font-medium text-lg">${order.total_amount.toFixed(2)}</p>
+              <p className="font-medium text-lg">৳{order.total_amount.toFixed(2)}</p>
             </div>
           </CardContent>
         </Card>
@@ -124,7 +124,7 @@ export default async function OrderDetailPage({ params }) {
                   </p>
                   <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
                 </div>
-                <p className="font-medium">${item.price.toFixed(2)}</p>
+                <p className="font-medium">৳{item.price.toFixed(2)}</p>
               </div>
             ))}
           </div>

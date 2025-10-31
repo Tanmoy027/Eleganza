@@ -55,7 +55,7 @@ export function CartItems({ items }) {
                   <span>Size: {item.size}</span>
                   <span>Color: {item.color}</span>
                 </div>
-                <p className="font-bold text-lg">${Number(item.products.price).toFixed(2)}</p>
+                <p className="font-bold text-lg">৳{Number(item.products.price).toFixed(2)}</p>
               </div>
 
               <div className="flex flex-col items-end justify-between">

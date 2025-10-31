@@ -121,7 +121,7 @@ export default async function OrdersPage() {
                                     </div>
                                     <div className="text-right">
                                         <p className="text-xl font-bold text-gray-900">
-                                            ${parseFloat(order.total_amount || 0).toFixed(2)}
+                                            ৳{parseFloat(order.total_amount || 0).toFixed(2)}
                                         </p>
                                         <Badge className={`${getStatusColor(order.status)} mt-1`}>
                                             {order.status?.charAt(0).toUpperCase() + order.status?.slice(1) || 'Unknown'}
@@ -186,12 +186,11 @@ export default async function OrdersPage() {
                                                                 {item.color && ` • Color: ${item.color}`}
                                                             </p>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <p className="font-medium text-gray-900">
-                                                                ${parseFloat(item.subtotal || 0).toFixed(2)}
-                                                            </p>
+                                                        <div className="text-right">                                            <p className="font-medium text-gray-900">
+                                                            ৳{parseFloat(item.subtotal || 0).toFixed(2)}
+                                                        </p>
                                                             <p className="text-sm text-gray-600">
-                                                                ${parseFloat(item.product_price || 0).toFixed(2)} each
+                                                                ৳{parseFloat(item.product_price || 0).toFixed(2)} each
                                                             </p>
                                                         </div>
                                                     </div>

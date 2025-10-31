@@ -45,7 +45,7 @@ export async function POST(request) {
         // Don't include images to avoid URL validation errors
         return {
           price_data: {
-            currency: "usd",
+            currency: "bdt",
             product_data: productData,
             unit_amount: Math.round(Number(item.products.price) * 100),
           },

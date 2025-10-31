@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserClient } from "@supabase/ssr"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -16,11 +15,6 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
     const { toast } = useToast()
-
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
 
     const statusOptions = [
         { value: "pending", label: "Pending" },
@@ -37,28 +31,27 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
         setIsLoading(true)
 
         try {
-            // Update order status
-            const { error: orderError } = await supabase
-                .from("orders")
-                .update({ status })
-                .eq("id", orderId)
-
-            if (orderError) throw orderError
-
-            // Add tracking entry
-            const { error: trackingError } = await supabase
-                .from("order_tracking")
-                .insert({
-                    order_id: orderId,
+            const response = await fetch('/api/admin/orders/update-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orderId,
                     status,
                     message: message || `Order status updated to ${status.replace('_', ' ')} by admin`
-                })
+                }),
+            })
 
-            if (trackingError) throw trackingError
+            const result = await response.json()
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update order status')
+            }
 
             toast({
                 title: "Status Updated",
-                description: `Order status has been updated to ${status.replace('_', ' ')}.`,
+                description: result.message || `Order status has been updated to ${status.replace('_', ' ')}.`,
             })
 
             setMessage("")
@@ -82,19 +75,27 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
         setIsLoading(true)
 
         try {
-            const { error } = await supabase
-                .from("order_tracking")
-                .insert({
-                    order_id: orderId,
+            const response = await fetch('/api/admin/orders/update-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orderId,
                     status: currentStatus,
                     message: message.trim()
-                })
+                }),
+            })
 
-            if (error) throw error
+            const result = await response.json()
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to add tracking note')
+            }
 
             toast({
                 title: "Note Added",
-                description: "Tracking note has been added successfully.",
+                description: result.message || "Tracking note has been added successfully.",
             })
 
             setMessage("")

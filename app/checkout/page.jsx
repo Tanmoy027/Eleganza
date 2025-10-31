@@ -34,21 +34,21 @@ export default async function CheckoutPage() {
                   <span className="text-muted-foreground">
                     {item.products.name} x {item.quantity}
                   </span>
-                  <span className="font-semibold">${(Number(item.products.price) * item.quantity).toFixed(2)}</span>
+                  <span className="font-semibold">৳{(Number(item.products.price) * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">৳{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tax (10%)</span>
-                  <span className="font-semibold">${tax.toFixed(2)}</span>
+                  <span className="font-semibold">৳{tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>৳{total.toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>

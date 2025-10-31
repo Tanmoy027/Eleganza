@@ -17,33 +17,32 @@ export default function OrdersTable({ orders }) {
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId)
 
-    // Update order status
-    const { error: orderError } = await supabase
-      .from("orders")
-      .update({ status: newStatus })
-      .eq("id", orderId)
-
-    if (orderError) {
-      alert("Error updating order: " + orderError.message)
-      setUpdating(null)
-      return
-    }
-
-    // Add tracking entry
-    const { error: trackingError } = await supabase
-      .from("order_tracking")
-      .insert({
-        order_id: orderId,
-        status: newStatus,
-        message: `Order status updated to ${newStatus.replace('_', ' ')} by admin`
+    try {
+      const response = await fetch('/api/admin/orders/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId,
+          status: newStatus,
+          message: `Order status updated to ${newStatus.replace('_', ' ')} by admin`
+        }),
       })
 
-    if (trackingError) {
-      console.error("Error adding tracking entry:", trackingError)
-    }
+      const result = await response.json()
 
-    router.refresh()
-    setUpdating(null)
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update order status')
+      }
+
+      router.refresh()
+    } catch (error) {
+      console.error("Error updating order status:", error)
+      alert("Error updating order: " + error.message)
+    } finally {
+      setUpdating(null)
+    }
   }
 
   const handlePaymentStatusChange = async (orderId, newStatus) => {
@@ -82,7 +81,7 @@ export default function OrdersTable({ orders }) {
                   <p className="text-sm text-gray-600">{order.profiles?.email}</p>
                 </div>
               </TableCell>
-              <TableCell className="font-medium">${order.total_amount.toFixed(2)}</TableCell>
+              <TableCell className="font-medium">৳{order.total_amount.toFixed(2)}</TableCell>
               <TableCell>
                 <Select
                   value={order.status}

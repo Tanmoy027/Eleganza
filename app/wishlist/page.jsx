@@ -3,7 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import Link from "next/link"
 import { Heart, ShoppingBag } from "lucide-react"
 import Image from "next/image"
-import { getProductMainImage, handleImageError } from "@/lib/image-utils"
+import { getProductMainImage } from "@/lib/image-utils"
 
 export default async function WishlistPage() {
   const supabase = await getSupabaseServerClient()
@@ -54,7 +54,6 @@ export default async function WishlistPage() {
                       alt={item.products.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={handleImageError}
                     />
                   </div>
                 </Link>

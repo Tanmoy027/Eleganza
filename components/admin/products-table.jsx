@@ -68,7 +68,7 @@ export default function ProductsTable({ products }) {
                 <TableCell className="text-sm">{product.clothing_type ? product.clothing_type.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : '-'}</TableCell>
                 <TableCell>{product.occasion}</TableCell>
                 <TableCell>{product.season}</TableCell>
-                <TableCell>${product.price.toFixed(2)}</TableCell>
+                <TableCell>৳{product.price.toFixed(2)}</TableCell>
                 <TableCell>{product.stock_quantity}</TableCell>
                 <TableCell>
                   <div className="flex items-center space-x-2">

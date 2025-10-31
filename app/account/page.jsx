@@ -268,7 +268,7 @@ export default async function AccountPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-gray-900 text-lg">
-                            ${Number.parseFloat(order.total_amount || 0).toFixed(2)}
+                            ৳{Number.parseFloat(order.total_amount || 0).toFixed(2)}
                           </p>
                           <span
                             className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1 ${order.status === "completed"
