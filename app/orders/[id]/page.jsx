@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { orderStatusUtils } from "@/lib/orders"
 import Link from "next/link"
 import { ArrowLeft, Package, Download, MapPin, CreditCard, Clock, Truck, CheckCircle, XCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -266,12 +267,13 @@ export default async function OrderDetailPage({ params }) {
                                     {(order.status === 'completed' || order.status === 'delivered') && (<Button className="w-full" variant="outline">
                                         <Download className="w-4 h-4 mr-2" />
                                         Download Invoice
-                                    </Button>
-                                    )}
-                                    {order.status === 'pending' && (
-                                        <Button className="w-full text-red-600 hover:text-red-700 border-red-200 hover:border-red-300" variant="outline">
-                                            Cancel Order
-                                        </Button>
+                                    </Button>)}                                    {orderStatusUtils.canCancelOrder(order.status) && (
+                                        <CancelOrderButton
+                                            orderId={order.id}
+                                            orderNumber={order.order_number || order.id.slice(0, 8)}
+                                            className="w-full"
+                                            size="default"
+                                        />
                                     )}
                                     <Button className="w-full" variant="outline" asChild>
                                         <Link href="/products">

@@ -57,9 +57,15 @@ export async function POST(request) {
                 { error: "Order not found" },
                 { status: 404 }
             )
-        }
+        } const oldStatus = currentOrder.status
 
-        const oldStatus = currentOrder.status
+        // Check if order is cancelled - admin cannot update cancelled orders
+        if (oldStatus === 'cancelled') {
+            return NextResponse.json(
+                { error: "Cannot update status of cancelled orders" },
+                { status: 400 }
+            )
+        }
 
         // Only proceed if status is actually changing
         if (oldStatus === status) {

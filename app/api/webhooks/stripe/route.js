@@ -51,7 +51,7 @@ export async function POST(request) {
                         .from("orders")
                         .update({
                             payment_status: "paid",
-                            status: "confirmed",
+                            status: "pending", // Keep status as pending until admin confirms
                             stripe_payment_intent_id: session.payment_intent,
                             stripe_session_id: sessionId, // Ensure session ID is stored
                         })
@@ -65,14 +65,12 @@ export async function POST(request) {
                     let orderData = null
 
                     if (error) {
-                        console.error("Error updating order in webhook:", error)
-
-                        // Try alternative update using session ID if order ID fails
+                        console.error("Error updating order in webhook:", error)                        // Try alternative update using session ID if order ID fails
                         const { data: altData, error: altError } = await serviceClient
                             .from("orders")
                             .update({
                                 payment_status: "paid",
-                                status: "confirmed",
+                                status: "pending", // Keep status as pending until admin confirms
                                 stripe_payment_intent_id: session.payment_intent,
                             })
                             .eq("stripe_session_id", sessionId)

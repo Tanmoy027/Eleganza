@@ -13,6 +13,21 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  // Webpack configuration to exclude server-side packages from client bundle
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Exclude nodemailer and other Node.js modules from client bundle
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+      };
+    }
+    return config;
+  },
+
   // Add headers to prevent aggressive caching
   async headers() {
     return [

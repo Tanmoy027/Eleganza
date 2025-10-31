@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { orderStatusUtils } from "@/lib/orders"
 import Link from "next/link"
 import { ArrowLeft, Package, Eye, Download, Truck, Clock, CheckCircle, XCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,9 +17,7 @@ export default async function OrdersPage() {
 
     if (!user) {
         redirect("/login")
-    }
-
-    // Fetch all user orders with order items and tracking information
+    }    // Fetch all user orders with order items and tracking information (excluding cancelled orders)
     const { data: orders } = await supabase
         .from("orders")
         .select(`
@@ -40,6 +39,7 @@ export default async function OrdersPage() {
       )
     `)
         .eq("user_id", user.id)
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false })
 
     const getStatusIcon = (status) => {
@@ -247,14 +247,12 @@ export default async function OrdersPage() {
                                             <Button variant="outline" size="sm">
                                                 <Download className="w-4 h-4 mr-2" />
                                                 Download Invoice
-                                            </Button>
-                                        )}
-                                        {order.status === 'pending' && (
-                                            <CancelOrderButton
-                                                orderId={order.id}
-                                                orderNumber={order.order_number || order.id.slice(0, 8)}
-                                            />
-                                        )}
+                                            </Button>)}                        {orderStatusUtils.canCancelOrder(order.status) && (
+                                                <CancelOrderButton
+                                                    orderId={order.id}
+                                                    orderNumber={order.order_number || order.id.slice(0, 8)}
+                                                />
+                                            )}
                                     </div>
                                 </div>
                             </CardContent>

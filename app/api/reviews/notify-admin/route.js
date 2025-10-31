@@ -49,9 +49,9 @@ export async function POST(request) {
         )
 
         if (emailResult.success) {
-            return NextResponse.json({ 
-                success: true, 
-                message: "Admin notification sent successfully" 
+            return NextResponse.json({
+                success: true,
+                message: "Admin notification sent successfully"
             })
         } else {
             console.error("Error sending admin notification:", emailResult.error)
