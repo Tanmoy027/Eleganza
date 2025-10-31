@@ -26,22 +26,7 @@ export default async function ProductPage({ params }) {
         .limit(4)
         .order("created_at", { ascending: false })
 
-    // Get reviews for this product
-    const { data: reviews } = await supabase
-        .from("product_reviews")
-        .select(`
-            *,
-            profiles:user_id (
-                full_name,
-                avatar_url
-            )
-        `)
-        .eq("product_id", id)
-        .eq("is_approved", true)
-        .order("created_at", { ascending: false })
-        .limit(50)
-
-    return <ProductDetails product={product} similarProducts={similarProducts || []} reviews={reviews || []} />
+    return <ProductDetails product={product} similarProducts={similarProducts || []} />
 }
 
 export async function generateMetadata({ params }) {

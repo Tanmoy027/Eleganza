@@ -22,6 +22,8 @@ export function ProductReviews({ productId }) {
     const [reviewText, setReviewText] = useState("")
     const [submitting, setSubmitting] = useState(false)
     const [editing, setEditing] = useState(false)
+    const [hasPurchased, setHasPurchased] = useState(false)
+    const [checkingPurchase, setCheckingPurchase] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -35,6 +37,20 @@ export function ProductReviews({ productId }) {
         setUser(user)
 
         if (user) {
+            setCheckingPurchase(true)
+
+            // Check if user has purchased this product
+            try {
+                const { data: purchaseStatus } = await supabase.rpc("has_purchased_product", {
+                    user_uuid: user.id,
+                    product_uuid: productId
+                })
+                setHasPurchased(purchaseStatus || false)
+            } catch (error) {
+                console.error("Error checking purchase status:", error)
+                setHasPurchased(false)
+            }
+
             // Check if user already has a review for this product
             const { data: existingReview } = await supabase
                 .from("product_reviews")
@@ -48,6 +64,8 @@ export function ProductReviews({ productId }) {
                 setRating(existingReview.rating)
                 setReviewText(existingReview.review_text)
             }
+
+            setCheckingPurchase(false)
         }
     }
 
@@ -67,9 +85,7 @@ export function ProductReviews({ productId }) {
         `)
                 .eq("product_id", productId)
                 .eq("is_approved", true)
-                .order("created_at", { ascending: false })
-
-            // Fetch review statistics
+                .order("created_at", { ascending: false })            // Fetch review statistics
             const { data: statsData } = await supabase
                 .from("product_review_stats")
                 .select("*")
@@ -91,6 +107,11 @@ export function ProductReviews({ productId }) {
             return
         }
 
+        if (!hasPurchased) {
+            alert("You can only review products you have purchased")
+            return
+        }
+
         if (rating === 0 || !reviewText.trim()) {
             alert("Please provide both rating and review text")
             return
@@ -100,18 +121,12 @@ export function ProductReviews({ productId }) {
         const supabase = getSupabaseBrowserClient()
 
         try {
-            // Check if user has purchased this product for verified badge
-            const { data: hasPurchased } = await supabase.rpc("has_purchased_product", {
-                user_uuid: user.id,
-                product_uuid: productId
-            })
-
             const reviewData = {
                 product_id: productId,
                 user_id: user.id,
                 rating,
                 review_text: reviewText.trim(),
-                is_verified_purchase: hasPurchased || false
+                is_verified_purchase: true // Always true since we verify purchase before allowing review
             }
 
             let result
@@ -134,7 +149,11 @@ export function ProductReviews({ productId }) {
 
             if (result.error) {
                 console.error("Error submitting review:", result.error)
-                alert("Error submitting review. Please try again.")
+                if (result.error.message?.includes("has_purchased_product")) {
+                    alert("You can only review products you have purchased and received.")
+                } else {
+                    alert("Error submitting review. Please try again.")
+                }
             } else {
                 alert(editing ? "Review updated successfully!" : "Review submitted successfully!")
                 setShowReviewForm(false)
@@ -280,109 +299,122 @@ export function ProductReviews({ productId }) {
                         </div>
                     </CardContent>
                 </Card>
-            )}
-
-            {/* Review Form */}
+            )}            {/* Review Form */}
             {user && (
-                <Card className="border-2 border-blue-100 bg-blue-50/30">
-                    <CardHeader className="pb-4">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <Star className="w-5 h-5 text-blue-600" />
-                            {userReview ? "Your Review" : "Write a Review"}
-                        </CardTitle>
-                        {!userReview && (
-                            <p className="text-sm text-gray-600">Share your experience with this product</p>
-                        )}
-                    </CardHeader>
-                    <CardContent>
-                        {userReview && !showReviewForm && !editing ? (
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-4">
-                                    <StarRating rating={userReview.rating} />
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                setEditing(true)
-                                                setShowReviewForm(true)
-                                            }}
-                                        >
-                                            <Edit2 className="w-4 h-4 mr-1" />
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleDeleteReview}
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-1" />
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </div>
-                                <p className="text-gray-700">{userReview.review_text}</p>
-                                <p className="text-sm text-gray-500">
-                                    {editing ? "Updated" : "Reviewed"} on {formatDate(userReview.created_at)}
-                                </p>
-                            </div>
-                        ) : (
-                            <>
-                                {!showReviewForm ? (
-                                    <Button onClick={() => setShowReviewForm(true)}>
-                                        {userReview ? "Edit Your Review" : "Write a Review"}
-                                    </Button>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <div>
-                                            <Label>Rating</Label>
-                                            <StarRating
-                                                rating={rating}
-                                                interactive={true}
-                                                onRatingChange={setRating}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Label htmlFor="review-text">Your Review</Label>
-                                            <Textarea
-                                                id="review-text"
-                                                placeholder="Share your thoughts about this product..."
-                                                value={reviewText}
-                                                onChange={(e) => setReviewText(e.target.value)}
-                                                rows={4}
-                                                className="mt-1"
-                                            />
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                            <Button
-                                                onClick={handleSubmitReview}
-                                                disabled={submitting || rating === 0 || !reviewText.trim()}
-                                            >
-                                                {submitting ? "Submitting..." : (editing ? "Update Review" : "Submit Review")}
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setShowReviewForm(false)
-                                                    setEditing(false)
-                                                    if (!userReview) {
-                                                        setRating(0)
-                                                        setReviewText("")
-                                                    }
-                                                }}
-                                            >
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    </div>
+                <>
+                    {hasPurchased ? (
+                        <Card className="border-2 border-blue-100 bg-blue-50/30">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Star className="w-5 h-5 text-blue-600" />
+                                    {userReview ? "Your Review" : "Write a Review"}
+                                </CardTitle>
+                                {!userReview && (
+                                    <p className="text-sm text-gray-600">Share your experience with this product</p>
                                 )}
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
-            )}            {!user && (
+                            </CardHeader>
+                            <CardContent>
+                                {userReview && !showReviewForm && !editing ? (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <StarRating rating={userReview.rating} />
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setEditing(true)
+                                                        setShowReviewForm(true)
+                                                    }}
+                                                >
+                                                    <Edit2 className="w-4 h-4 mr-1" />
+                                                    Edit
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleDeleteReview}
+                                                >
+                                                    <Trash2 className="w-4 h-4 mr-1" />
+                                                    Delete
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <p className="text-gray-700">{userReview.review_text}</p>
+                                        <p className="text-sm text-gray-500">
+                                            {editing ? "Updated" : "Reviewed"} on {formatDate(userReview.created_at)}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {!showReviewForm ? (
+                                            <Button onClick={() => setShowReviewForm(true)}>
+                                                {userReview ? "Edit Your Review" : "Write a Review"}
+                                            </Button>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <Label>Rating</Label>
+                                                    <StarRating
+                                                        rating={rating}
+                                                        interactive={true}
+                                                        onRatingChange={setRating}
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <Label htmlFor="review-text">Your Review</Label>
+                                                    <Textarea
+                                                        id="review-text"
+                                                        placeholder="Share your thoughts about this product..."
+                                                        value={reviewText}
+                                                        onChange={(e) => setReviewText(e.target.value)}
+                                                        rows={4}
+                                                        className="mt-1"
+                                                    />
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        onClick={handleSubmitReview}
+                                                        disabled={submitting || rating === 0 || !reviewText.trim()}
+                                                    >
+                                                        {submitting ? "Submitting..." : (editing ? "Update Review" : "Submit Review")}
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            setShowReviewForm(false)
+                                                            setEditing(false)
+                                                            if (!userReview) {
+                                                                setRating(0)
+                                                                setReviewText("")
+                                                            }
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+                            <CardContent className="pt-8 pb-8 text-center">
+                                <Shield className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Purchase Required to Review</h3>
+                                <p className="text-gray-600 mb-4">You can only write reviews for products you have purchased</p>
+                                {checkingPurchase && (
+                                    <p className="text-sm text-gray-500">Checking purchase history...</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+                </>
+            )}{!user && (
                 <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
                     <CardContent className="pt-8 pb-8 text-center">
                         <MessageSquare className="w-12 h-12 text-blue-500 mx-auto mb-4" />
