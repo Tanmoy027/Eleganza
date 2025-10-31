@@ -85,7 +85,7 @@ export default async function CheckoutSuccessPage({ searchParams }) {
           .from("orders")
           .update({
             payment_status: "paid",
-            status: "confirmed",
+            status: "pending", // Keep as pending until admin confirms
             stripe_payment_intent_id: session.payment_intent,
           })
           .eq("stripe_session_id", sessionId)
@@ -101,7 +101,7 @@ export default async function CheckoutSuccessPage({ searchParams }) {
             .from("orders")
             .update({
               payment_status: "paid",
-              status: "confirmed",
+              status: "pending", // Keep as pending until admin confirms
               stripe_payment_intent_id: session.payment_intent,
             })
             .eq("id", updatedOrder.id)
@@ -116,6 +116,15 @@ export default async function CheckoutSuccessPage({ searchParams }) {
         if (finalUpdated) {
           updatedOrder = finalUpdated
           console.log("✅ Order updated successfully:", updatedOrder)
+
+          // Add tracking entry for payment completion
+          await serviceClient
+            .from("order_tracking")
+            .insert({
+              order_id: finalUpdated.id,
+              status: "pending",
+              message: "Payment completed successfully. Order is pending admin confirmation."
+            })
 
           // Send email notifications since webhook might not have been triggered
           try {

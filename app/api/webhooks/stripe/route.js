@@ -45,8 +45,7 @@ export async function POST(request) {
                 console.log(`Processing payment for order: ${orderId}, session: ${sessionId}`)
                 console.log("Session payment status:", session.payment_status)
 
-                if (session.payment_status === "paid") {
-                    // Update order status using both order ID and session ID for reliability
+                if (session.payment_status === "paid") {                    // Update order status using both order ID and session ID for reliability
                     const { data, error } = await serviceClient
                         .from("orders")
                         .update({
@@ -91,6 +90,15 @@ export async function POST(request) {
                         orderData = data[0]
                     }                    // Send email notifications if order was successfully updated
                     if (orderData) {
+                        // Add tracking entry for payment completion
+                        await serviceClient
+                            .from("order_tracking")
+                            .insert({
+                                order_id: orderData.id,
+                                status: "pending",
+                                message: "Order created and payment received. Awaiting admin confirmation."
+                            })
+
                         console.log("📧 Sending email notifications...")
                         console.log("Customer email:", orderData.profiles?.email)
                         console.log("Admin email:", process.env.ADMIN_EMAIL)

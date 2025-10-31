@@ -30,13 +30,14 @@ export default function CancelOrderButton({ orderId, orderNumber, className = ""
 
             if (error) {
                 throw error
-            }
-
-            toast({
+            } toast({
                 title: "✅ Order Cancelled Successfully",
                 description: `Order #${orderNumber || orderId.slice(0, 8)} has been cancelled and will be removed from your orders.`,
                 duration: 3000,
             })
+
+            // Immediately refresh to show updated status
+            router.refresh()
 
             // Navigate based on current location with a delay to show the toast
             setTimeout(() => {
@@ -45,14 +46,10 @@ export default function CancelOrderButton({ orderId, orderNumber, className = ""
                     // If on individual order page, go to orders list
                     router.push('/orders')
                 } else {
-                    // If on orders list or account orders, refresh to update the list
-                    router.refresh()
-                    // Force reload to ensure cancelled orders are removed from the list
-                    setTimeout(() => {
-                        window.location.reload()
-                    }, 500)
+                    // Force reload to ensure cancelled orders are updated in the list
+                    window.location.reload()
                 }
-            }, 2000)
+            }, 1500)
         } catch (error) {
             console.error("Error cancelling order:", error)
             toast({

@@ -57,12 +57,37 @@ export async function POST(request) {
                 { error: "Order not found" },
                 { status: 404 }
             )
-        } const oldStatus = currentOrder.status
+        }
+        const oldStatus = currentOrder.status
 
-        // Check if order is cancelled - admin cannot update cancelled orders
-        if (oldStatus === 'cancelled') {
+        // Check if order is cancelled - admin cannot update cancelled orders (case insensitive)
+        if (oldStatus?.toLowerCase() === 'cancelled') {
             return NextResponse.json(
-                { error: "Cannot update status of cancelled orders" },
+                { error: "Cannot update status of cancelled orders. Once an order is cancelled by the customer, it cannot be modified." },
+                { status: 400 }
+            )
+        }
+
+        // Extra safety: if any tracking entry is already marked cancelled, block updates too
+        const { data: cancelledTrack } = await serviceClient
+            .from("order_tracking")
+            .select("id")
+            .eq("order_id", orderId)
+            .eq("status", "cancelled")
+            .limit(1)
+            .maybeSingle()
+
+        if (cancelledTrack) {
+            return NextResponse.json(
+                { error: "This order has a cancellation record and cannot be modified." },
+                { status: 400 }
+            )
+        }
+
+        // Prevent setting status to cancelled via admin (only customers can cancel)
+        if (status?.toLowerCase() === 'cancelled') {
+            return NextResponse.json(
+                { error: "Orders cannot be cancelled via admin panel. Only customers can cancel their own orders." },
                 { status: 400 }
             )
         }
@@ -122,13 +147,19 @@ export async function POST(request) {
             )
         }
 
+        // If status is set to delivered, automatically mark as completed after a delay
+        // or admin can manually set to completed
+        const statusMessage = status === 'delivered'
+            ? `Order delivered successfully. ${message?.trim() || 'Order will be marked as completed automatically.'}`
+            : message?.trim() || `Order status updated to ${status.replace('_', ' ')} by admin`
+
         // Add tracking entry
         const { error: trackingError } = await serviceClient
             .from("order_tracking")
             .insert({
                 order_id: orderId,
                 status,
-                message: message?.trim() || `Order status updated to ${status.replace('_', ' ')} by admin`
+                message: statusMessage
             })
 
         if (trackingError) {

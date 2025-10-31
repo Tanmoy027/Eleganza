@@ -14,8 +14,33 @@ export default function OrdersTable({ orders }) {
 
   const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
+  const isCancelled = (o) => {
+    const s = o?.status?.toLowerCase()
+    if (s === 'cancelled') return true
+    // Also treat as cancelled if any tracking record says cancelled
+    if (Array.isArray(o?.order_tracking)) {
+      return o.order_tracking.some(t => t?.status?.toLowerCase() === 'cancelled')
+    }
+    return false
+  }
+
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId)
+
+    // Find the current order to check if it's cancelled
+    const currentOrder = orders.find(order => order.id === orderId)
+    if (isCancelled(currentOrder)) {
+      alert("Cannot update status of cancelled orders. Once an order is cancelled by the customer, it cannot be modified.")
+      setUpdating(null)
+      return
+    }
+
+    // Prevent selecting cancelled from admin dropdown
+    if (newStatus?.toLowerCase() === 'cancelled') {
+      alert("Admins cannot set orders to Cancelled. Customers can cancel their own orders.")
+      setUpdating(null)
+      return
+    }
 
     try {
       const response = await fetch('/api/admin/orders/update-status', {
@@ -47,6 +72,13 @@ export default function OrdersTable({ orders }) {
 
   const handlePaymentStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId)
+    const currentOrder = orders.find(order => order.id === orderId)
+    if (isCancelled(currentOrder)) {
+      alert("Cannot update payment of cancelled orders.")
+      setUpdating(null)
+      return
+    }
+
     const { error } = await supabase.from("orders").update({ payment_status: newStatus }).eq("id", orderId)
 
     if (error) {
@@ -83,12 +115,16 @@ export default function OrdersTable({ orders }) {
               </TableCell>
               <TableCell className="font-medium">৳{order.total_amount.toFixed(2)}</TableCell>
               <TableCell>
+                {/* Show red cancelled badge info if cancelled via tracking */}
+                {isCancelled(order) && (
+                  <div className="mb-1 text-xs text-red-600 font-semibold">CANCELLED</div>
+                )}
                 <Select
                   value={order.status}
                   onValueChange={(value) => handleStatusChange(order.id, value)}
-                  disabled={updating === order.id}
+                  disabled={updating === order.id || isCancelled(order)}
                 >
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className={`w-32 ${isCancelled(order) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -97,17 +133,19 @@ export default function OrdersTable({ orders }) {
                     <SelectItem value="processing">Processing</SelectItem>
                     <SelectItem value="shipped">Shipped</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
+                {isCancelled(order) && (
+                  <p className="text-xs text-red-600 mt-1">Cannot modify cancelled orders</p>
+                )}
               </TableCell>
               <TableCell>
                 <Select
                   value={order.payment_status}
                   onValueChange={(value) => handlePaymentStatusChange(order.id, value)}
-                  disabled={updating === order.id}
+                  disabled={updating === order.id || isCancelled(order)}
                 >
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className={`w-32 ${isCancelled(order) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

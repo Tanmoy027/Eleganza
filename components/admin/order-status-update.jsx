@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -16,17 +16,44 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
     const router = useRouter()
     const { toast } = useToast()
 
+    // Update local status when currentStatus prop changes
+    useEffect(() => {
+        setStatus(currentStatus)
+    }, [currentStatus])
+
+    // Check if the order is cancelled (handle both cases)
+    const isOrderCancelled = currentStatus?.toLowerCase() === 'cancelled'
     const statusOptions = [
         { value: "pending", label: "Pending" },
         { value: "confirmed", label: "Confirmed" },
         { value: "processing", label: "Processing" },
         { value: "shipped", label: "Shipped" },
         { value: "delivered", label: "Delivered" },
-        { value: "cancelled", label: "Cancelled" },
+        { value: "completed", label: "Completed" },
+        // Removed "cancelled" - only customers can cancel orders
     ]
 
     const handleStatusUpdate = async () => {
         if (!status) return
+
+        // Additional frontend validation
+        if (isOrderCancelled) {
+            toast({
+                title: "Cannot Update",
+                description: "This order has been cancelled and cannot be modified.",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (status?.toLowerCase() === 'cancelled') {
+            toast({
+                title: "Not Allowed",
+                description: "Admins cannot set orders to Cancelled.",
+                variant: "destructive",
+            })
+            return
+        }
 
         setIsLoading(true)
 
@@ -56,7 +83,6 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
 
             setMessage("")
             router.refresh()
-
         } catch (error) {
             console.error("Error updating order status:", error)
             toast({
@@ -64,6 +90,14 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
                 description: error.message || "Failed to update order status. Please try again.",
                 variant: "destructive",
             })
+
+            // If it's a cancelled order error, force refresh to show current state
+            if (error.message?.includes('cancelled') || error.message?.includes('Cannot update')) {
+                setTimeout(() => {
+                    router.refresh()
+                    window.location.reload()
+                }, 1000)
+            }
         } finally {
             setIsLoading(false)
         }
@@ -117,12 +151,26 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
         <Card>
             <CardHeader>
                 <CardTitle>Update Order Status</CardTitle>
+                {isOrderCancelled && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-red-800 text-sm font-medium">
+                            ⚠️ This order has been cancelled by the customer and cannot be modified.
+                        </p>
+                        <p className="text-red-600 text-xs mt-1">
+                            Current Status: <span className="font-semibold uppercase">{currentStatus}</span>
+                        </p>
+                    </div>
+                )}
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="status">Order Status</Label>
-                    <Select value={status} onValueChange={setStatus}>
-                        <SelectTrigger>
+                    <Select
+                        value={status}
+                        onValueChange={setStatus}
+                        disabled={isOrderCancelled}
+                    >
+                        <SelectTrigger className={isOrderCancelled ? "opacity-50 cursor-not-allowed" : ""}>
                             <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -141,21 +189,22 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
                         id="message"
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Add a custom message for this status update..."
+                        placeholder={isOrderCancelled ? "Cannot add messages to cancelled orders" : "Add a custom message for this status update..."}
                         rows={3}
+                        disabled={isOrderCancelled}
+                        className={isOrderCancelled ? "opacity-50 cursor-not-allowed" : ""}
                     />
                 </div>
-
                 <div className="flex gap-2">
                     <Button
                         onClick={handleStatusUpdate}
-                        disabled={isLoading || !status}
+                        disabled={isLoading || !status || isOrderCancelled || status === currentStatus}
                         className="flex-1"
                     >
-                        {isLoading ? "Updating..." : "Update Status"}
+                        {isLoading ? "Updating..." : isOrderCancelled ? "Cannot Update Cancelled Orders" : "Update Status"}
                     </Button>
 
-                    {message.trim() && status === currentStatus && (
+                    {message.trim() && status === currentStatus && !isOrderCancelled && (
                         <Button
                             onClick={handleAddTrackingNote}
                             disabled={isLoading}

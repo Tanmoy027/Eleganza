@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import CancelOrderButton from "@/components/orders/cancel-order-button"
 
+// Add revalidation to ensure fresh data
+export const revalidate = 0
+
 export default async function OrdersPage() {
     const supabase = await getSupabaseServerClient()
 
@@ -37,9 +40,7 @@ export default async function OrdersPage() {
         message,
         created_at
       )
-    `)
-        .eq("user_id", user.id)
-        .neq("status", "cancelled")
+    `).eq("user_id", user.id)
         .order("created_at", { ascending: false })
 
     const getStatusIcon = (status) => {

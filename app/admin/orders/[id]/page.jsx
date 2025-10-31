@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import OrderStatusUpdate from "@/components/admin/order-status-update"
 
+// Add revalidation to ensure fresh data
+export const revalidate = 0
+
 export default async function OrderDetailPage({ params }) {
   const cookieStore = cookies()
 

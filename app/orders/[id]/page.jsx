@@ -10,6 +10,9 @@ import { Separator } from "@/components/ui/separator"
 import RealTimeOrderTracking from "@/components/orders/real-time-order-tracking"
 import CancelOrderButton from "@/components/orders/cancel-order-button"
 
+// Add revalidation to ensure fresh data
+export const revalidate = 0
+
 export default async function OrderDetailPage({ params }) {
     const supabase = await getSupabaseServerClient()
 
@@ -99,7 +102,8 @@ export default async function OrderDetailPage({ params }) {
         { key: 'confirmed', label: 'Order Confirmed', description: 'Your order has been confirmed' },
         { key: 'processing', label: 'Processing', description: 'We are preparing your order' },
         { key: 'shipped', label: 'Shipped', description: 'Your order is on its way' },
-        { key: 'delivered', label: 'Delivered', description: 'Your order has been delivered' }
+        { key: 'delivered', label: 'Delivered', description: 'Your order has been delivered' },
+        { key: 'completed', label: 'Completed', description: 'Order completed successfully' }
     ]
 
     const getCurrentStatusIndex = () => {
@@ -108,6 +112,8 @@ export default async function OrderDetailPage({ params }) {
     }
 
     const currentStatusIndex = getCurrentStatusIndex()
+
+    const isCancelled = (order.status?.toLowerCase() === 'cancelled') || (Array.isArray(order.order_tracking) && order.order_tracking.some(t => t?.status?.toLowerCase() === 'cancelled'))
 
     return (
         <div className="min-h-screen bg-gray-50 py-8">
@@ -267,7 +273,8 @@ export default async function OrderDetailPage({ params }) {
                                     {(order.status === 'completed' || order.status === 'delivered') && (<Button className="w-full" variant="outline">
                                         <Download className="w-4 h-4 mr-2" />
                                         Download Invoice
-                                    </Button>)}                                    {orderStatusUtils.canCancelOrder(order.status) && (
+                                    </Button>)}
+                                    {!isCancelled && orderStatusUtils.canCancelOrder(order.status) && (
                                         <CancelOrderButton
                                             orderId={order.id}
                                             orderNumber={order.order_number || order.id.slice(0, 8)}
@@ -280,7 +287,8 @@ export default async function OrderDetailPage({ params }) {
                                             Continue Shopping
                                         </Link>
                                     </Button>
-                                </div>            </CardContent>
+                                </div>
+                            </CardContent>
                         </Card>
                     </div>
                 </div>

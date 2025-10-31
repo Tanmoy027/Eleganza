@@ -42,7 +42,16 @@ export async function POST(request) {
             )
         }
 
-        if (order.status === 'confirmed' || order.status === 'processing' || order.status === 'shipped' || order.status === 'delivered' || order.status === 'completed') {
+        // Check if order is already cancelled (case insensitive)
+        if (order.status?.toLowerCase() === 'cancelled') {
+            return NextResponse.json(
+                { error: "Order is already cancelled" },
+                { status: 400 }
+            )
+        }
+
+        // Check if order can be cancelled based on current status
+        if (['confirmed', 'processing', 'shipped', 'delivered', 'completed'].includes(order.status)) {
             return NextResponse.json(
                 { error: "Order cannot be cancelled once it has been confirmed or is in progress" },
                 { status: 400 }
@@ -61,6 +70,7 @@ export async function POST(request) {
             .select()
 
         if (error) {
+            console.error("Database error:", error)
             return NextResponse.json(
                 { error: "Failed to cancel order" },
                 { status: 500 }
