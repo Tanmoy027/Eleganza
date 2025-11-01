@@ -12,6 +12,7 @@ import { addToWishlist, removeFromWishlist, isInWishlist } from "@/lib/wishlist"
 import { getProductMainImage, getProductImages, handleImageError as handleImgError } from "@/lib/image-utils"
 import { ProductReviews } from "@/components/ProductReviews"
 import { ProductCard } from "./product-card"
+import { getProductVariants, buildAvailabilityMaps } from "@/lib/inventory"
 
 export function ProductDetails({ product, similarProducts = [] }) {
   const router = useRouter()
@@ -24,6 +25,8 @@ export function ProductDetails({ product, similarProducts = [] }) {
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
   const [showShipping, setShowShipping] = useState(false)
+  const [variants, setVariants] = useState([])
+  const [availability, setAvailability] = useState({ byColor: new Map(), bySize: new Map(), byKey: new Map() })
 
   // Get all valid images for the gallery
   const productImages = getProductImages(product)
@@ -34,6 +37,15 @@ export function ProductDetails({ product, similarProducts = [] }) {
       setInWishlist(isInList)
     }
     checkWishlist()
+  }, [product.id])
+
+  useEffect(() => {
+    async function loadVariants() {
+      const { data } = await getProductVariants(product.id)
+      setVariants(data)
+      setAvailability(buildAvailabilityMaps(data))
+    }
+    loadVariants()
   }, [product.id])
 
   // Handle image load error
@@ -64,7 +76,7 @@ export function ProductDetails({ product, similarProducts = [] }) {
         product.id,
         1,
         selectedSize,
-        selectedColor || "default"
+        selectedColor
       )
 
       if (error) {
@@ -106,6 +118,12 @@ export function ProductDetails({ product, similarProducts = [] }) {
       router.push("/login")
     }
     setWishlistLoading(false)
+  }
+
+  const isOptionAvailable = (color, size) => {
+    const key = `${(color || '').toLowerCase()}__${(size || '').toUpperCase()}`
+    const v = availability.byKey.get(key)
+    return v && v.stock_quantity > 0
   }
 
   return (
@@ -221,19 +239,23 @@ export function ProductDetails({ product, similarProducts = [] }) {
                 <span className="text-red-500 text-sm">*</span>
                 {!selectedSize && <span className="text-xs text-gray-500">(Required)</span>}
               </div>
-              <div className="flex gap-3">
-                {(product.sizes || ['S', 'M', 'L', 'XL', 'XXL']).map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all ${selectedSize === size
-                      ? "bg-black text-white border-black"
-                      : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                      }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+              <div className="flex gap-3 flex-wrap">
+                {(product.sizes || ['S', 'M', 'L', 'XL', 'XXL']).map((size) => {
+                  const available = selectedColor ? isOptionAvailable(selectedColor, size) : true
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      disabled={selectedColor && !available}
+                      className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all ${selectedSize === size
+                        ? "bg-black text-white border-black"
+                        : available ? "bg-white text-gray-700 border-gray-300 hover:border-gray-400" : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        }`}
+                    >
+                      {size}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -246,19 +268,32 @@ export function ProductDetails({ product, similarProducts = [] }) {
                   {!selectedColor && <span className="text-xs text-gray-500">(Required)</span>}
                 </div>
                 <div className="flex gap-3 flex-wrap">
-                  {product.colors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all capitalize ${selectedColor === color
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                        }`}
-                    >
-                      {color}
-                    </button>
-                  ))}
+                  {product.colors.map((color) => {
+                    const available = selectedSize ? isOptionAvailable(color, selectedSize) : true
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        disabled={selectedSize && !available}
+                        className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all capitalize ${selectedColor === color
+                          ? "bg-black text-white border-black"
+                          : available ? "bg-white text-gray-700 border-gray-300 hover:border-gray-400" : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                          }`}
+                      >
+                        {color}
+                      </button>
+                    )
+                  })}
                 </div>
+                {selectedColor && selectedSize && (
+                  <div className="text-sm">
+                    {isOptionAvailable(selectedColor, selectedSize) ? (
+                      <span className="text-green-600">Selected color/size is available</span>
+                    ) : (
+                      <span className="text-red-600">Selected color is not available in this size</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -268,7 +303,7 @@ export function ProductDetails({ product, similarProducts = [] }) {
                 <Button
                   className="flex-1 bg-black text-white hover:bg-gray-800 py-3 px-6 rounded-full font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                   onClick={handleAddToCart}
-                  disabled={loading || product.stock_quantity === 0 || !selectedSize || (product.colors && product.colors.length > 0 && !selectedColor)}
+                  disabled={loading || product.stock_quantity === 0 || !selectedSize || (product.colors && product.colors.length > 0 && !selectedColor) || (selectedColor && selectedSize && !isOptionAvailable(selectedColor, selectedSize))}
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">

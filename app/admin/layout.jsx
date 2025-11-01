@@ -43,6 +43,14 @@ export default async function AdminLayout({ children }) {
               <Package className="w-5 h-5" />
               <span>Products</span>
             </Link>
+            {/* New Inventory link */}
+            <Link
+              href="/admin/inventory"
+              className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Package className="w-5 h-5" />
+              <span>Inventory</span>
+            </Link>
             <Link
               href="/admin/orders"
               className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors"
