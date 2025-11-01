@@ -4,6 +4,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1) Product variants table for size/color level stock
+DROP TABLE IF EXISTS product_variants CASCADE;
 CREATE TABLE IF NOT EXISTS product_variants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -27,6 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_product_variants_active ON product_variants(is_ac
 CREATE INDEX IF NOT EXISTS idx_product_variants_last_sold ON product_variants(last_sold_at);
 
 -- 2) Inventory movements table for audit trail
+DROP TABLE IF EXISTS inventory_movements CASCADE;
 CREATE TABLE IF NOT EXISTS inventory_movements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -156,11 +158,11 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_variant_id UUID;
 BEGIN
-  -- Find variant by product + size + color
+  -- Find variant by product + size + color (case-insensitive)
   SELECT id INTO v_variant_id FROM product_variants
   WHERE product_id = NEW.product_id
-    AND ( (NEW.size IS NULL AND size IS NULL) OR size = NEW.size )
-    AND ( (NEW.color IS NULL AND color IS NULL) OR color = NEW.color )
+    AND ( (NEW.size IS NULL AND size IS NULL) OR COALESCE(UPPER(size),'') = COALESCE(UPPER(NEW.size),'') )
+    AND ( (NEW.color IS NULL AND color IS NULL) OR COALESCE(LOWER(color),'') = COALESCE(LOWER(NEW.color),'') )
   LIMIT 1;
 
   IF v_variant_id IS NOT NULL THEN

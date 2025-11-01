@@ -147,11 +147,28 @@ export async function POST(request) {
             )
         }
 
-        // If status is set to delivered, automatically mark as completed after a delay
-        // or admin can manually set to completed
-        const statusMessage = status === 'delivered'
+        // Fetch order items for including product details in emails
+        const { data: orderItems } = await serviceClient
+            .from('order_items')
+            .select('product_name, quantity, size, color')
+            .eq('order_id', orderId)
+
+        // If status is set to delivered, generate OTP and email it with product details
+        let otpCode = null
+        const lowerStatus = status?.toLowerCase()
+        const shouldSendOtp = lowerStatus === 'delivered' // send only on delivered per requirements
+        if (shouldSendOtp) {
+            // Generate random 4-digit OTP
+            otpCode = Math.floor(1000 + Math.random() * 9000).toString()
+        }
+
+        const baseMsg = lowerStatus === 'delivered'
             ? `Order delivered successfully. ${message?.trim() || 'Order will be marked as completed automatically.'}`
-            : message?.trim() || `Order status updated to ${status.replace('_', ' ')} by admin`
+            : (message?.trim() || `Order status updated to ${status.replace('_', ' ')} by admin`)
+
+        const statusMessage = shouldSendOtp
+            ? `${baseMsg}\n\nDelivery OTP: ${otpCode}. When receiving the order use this OTP.`
+            : baseMsg
 
         // Add tracking entry
         const { error: trackingError } = await serviceClient
@@ -170,30 +187,32 @@ export async function POST(request) {
         // Send email notification to customer if they have an email
         if (updatedOrder.profiles?.email) {
             try {
+                // Send standard status update email and include OTP + items when available
                 const emailResult = await sendOrderStatusUpdateEmail(
                     updatedOrder,
                     updatedOrder.profiles.email,
                     oldStatus,
-                    status
+                    status,
+                    { otpCode, orderItems }
                 )
 
                 if (!emailResult.success) {
                     console.error("Failed to send status update email:", emailResult.error)
-                    // Don't fail the request if email fails, but log it
                 } else {
                     console.log("Status update email sent successfully")
                 }
+
             } catch (emailError) {
-                console.error("Error sending status update email:", emailError)
+                console.error("Error sending status/OTP emails:", emailError)
                 // Don't fail the request if email fails
             }
         } else {
-            console.log("No customer email found, skipping status update email")
+            console.log("No customer email found, skipping emails")
         }
 
         return NextResponse.json({
             success: true,
-            message: `Order status updated to ${status.replace('_', ' ')} successfully`,
+            message: `Order status updated to ${status.replace('_', ' ')} successfully` + (otpCode ? ` (delivery OTP included in email)` : ''),
             order: updatedOrder
         })
 

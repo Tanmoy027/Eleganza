@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { X, Loader2 } from "lucide-react"
-import { getProductVariants, upsertProductVariants } from "@/lib/inventory"
+import { syncVariantsUniformStock } from "@/lib/inventory"
 
 export default function ProductForm({ product }) {
   const router = useRouter()
@@ -36,8 +36,6 @@ export default function ProductForm({ product }) {
     image_url: product?.image_url || "",
     images: product?.images || [],
   })
-  const [variants, setVariants] = useState([])
-  const [variantsLoading, setVariantsLoading] = useState(false)
 
   const supabase = getSupabaseBrowserClient()
 
@@ -385,6 +383,17 @@ export default function ProductForm({ product }) {
         return
       }
 
+      // Ensure variants exist and each combination carries the same stock
+      try {
+        const savedId = product ? product.id : (result?.data?.[0]?.id)
+        if (savedId) {
+          const perVariantStock = Number.parseInt(formData.stock_quantity) || 0
+          await syncVariantsUniformStock(savedId, perVariantStock)
+        }
+      } catch (e) {
+        console.warn('Variant sync warning:', e)
+      }
+
       // Show success message
       alert(`Product ${product ? 'updated' : 'created'} successfully!`)
 
@@ -402,64 +411,6 @@ export default function ProductForm({ product }) {
       setOperationState('productSave', false)
     }
   }, [loading, uploadingImages, isOperationActive, setOperationState, formData, product, supabase, router])
-
-  // Load variants for edit mode
-  useEffect(() => {
-    async function loadVariants() {
-      if (!product?.id) return
-      setVariantsLoading(true)
-      const { data } = await getProductVariants(product.id)
-      setVariants(data)
-      setVariantsLoading(false)
-    }
-    loadVariants()
-  }, [product?.id])
-
-  const addVariantRow = () => {
-    setVariants(v => [...v, { id: undefined, product_id: product?.id, color: "", size: "", sku: "", stock_quantity: 0, restock_threshold: 5, is_active: true }])
-  }
-
-  const removeVariantRow = (index) => {
-    setVariants(v => v.filter((_, i) => i !== index))
-  }
-
-  const updateVariantField = (index, field, value) => {
-    setVariants(v => v.map((row, i) => i === index ? { ...row, [field]: value } : row))
-  }
-
-  const saveVariants = async () => {
-    if (!product?.id) {
-      alert("Please save the product first, then manage variants.")
-      return
-    }
-
-    // Normalize arrays on product from variants
-    const uniqueSizes = Array.from(new Set(variants.map(v => (v.size || '').toString().trim()).filter(Boolean)))
-    const uniqueColors = Array.from(new Set(variants.map(v => (v.color || '').toString().trim()).filter(Boolean)))
-
-    // Persist product arrays for compatibility
-    await supabase.from('products').update({ sizes: uniqueSizes, colors: uniqueColors }).eq('id', product.id)
-
-    // Upsert variants
-    const payload = variants.map(v => ({
-      id: v.id,
-      product_id: product.id,
-      color: (v.color || '').trim().toLowerCase(),
-      size: (v.size || '').trim().toUpperCase(),
-      sku: (v.sku || '').trim() || null,
-      stock_quantity: parseInt(v.stock_quantity || 0, 10),
-      restock_threshold: parseInt(v.restock_threshold || 0, 10),
-      is_active: v.is_active !== false
-    }))
-
-    const { error } = await upsertProductVariants(payload)
-    if (error) {
-      alert("Error saving variants: " + error.message)
-      return
-    }
-
-    alert("Variants saved")
-  }
 
   return (
     <Card>
@@ -490,6 +441,7 @@ export default function ProductForm({ product }) {
 
             <div className="space-y-2">
               <Label htmlFor="discount_percentage">Discount Percentage (%)</Label>
+              <p className="text-xs text-muted-foreground">This discount applies to all variants of this product.</p>
               <Input
                 id="discount_percentage"
                 type="number"
@@ -596,7 +548,8 @@ export default function ProductForm({ product }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="stock">Stock Quantity</Label>
+              <Label htmlFor="stock">Per-Variant Stock</Label>
+              <p className="text-xs text-muted-foreground">Each size/color variant will be created (if missing) and set to this stock on save. You can fine-tune per-variant in Inventory.</p>
               <Input
                 id="stock"
                 type="number"
@@ -608,6 +561,7 @@ export default function ProductForm({ product }) {
 
             <div className="space-y-2">
               <Label htmlFor="sizes">Sizes (comma separated)</Label>
+              <p className="text-xs text-muted-foreground">These sizes create variants. Every size/color will get the same starting stock from the Stock field. You can adjust specific sizes/colors later in Inventory.</p>
               <Input
                 id="sizes"
                 placeholder="S, M, L, XL"
@@ -619,6 +573,7 @@ export default function ProductForm({ product }) {
 
             <div className="space-y-2">
               <Label htmlFor="colors">Colors (comma separated)</Label>
+              <p className="text-xs text-muted-foreground">Colors define variants along with sizes. Leave empty for no color variants.</p>
               <Input
                 id="colors"
                 placeholder="Red, Blue, Black"
@@ -692,39 +647,6 @@ export default function ProductForm({ product }) {
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Variant Manager */}
-          <div className="space-y-4 border-t pt-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Variants (Color/Size Inventory)</h2>
-              <Button type="button" variant="outline" onClick={addVariantRow}>Add Variant</Button>
-            </div>
-
-            {variantsLoading ? (
-              <div className="text-sm text-muted-foreground">Loading variants...</div>
-            ) : variants.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No variants yet. Add at least one for size/color specific stock.</div>
-            ) : (
-              <div className="space-y-3">
-                {variants.map((row, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-8 gap-3 items-center">
-                    <Input placeholder="Color" value={row.color || ''} onChange={(e) => updateVariantField(idx, 'color', e.target.value)} />
-                    <Input placeholder="Size" value={row.size || ''} onChange={(e) => updateVariantField(idx, 'size', e.target.value)} />
-                    <Input placeholder="SKU (optional)" value={row.sku || ''} onChange={(e) => updateVariantField(idx, 'sku', e.target.value)} className="md:col-span-2" />
-                    <Input type="number" placeholder="Stock" value={row.stock_quantity ?? 0} onChange={(e) => updateVariantField(idx, 'stock_quantity', e.target.value)} />
-                    <Input type="number" placeholder="Restock Threshold" value={row.restock_threshold ?? 5} onChange={(e) => updateVariantField(idx, 'restock_threshold', e.target.value)} />
-                    <Button type="button" variant="destructive" onClick={() => removeVariantRow(idx)}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <Button type="button" onClick={saveVariants}>Save Variants</Button>
-            </div>
           </div>
 
           <div className="flex space-x-4">

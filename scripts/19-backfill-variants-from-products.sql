@@ -28,15 +28,15 @@ BEGIN
       IF r.colors IS NULL OR array_length(r.colors,1) IS NULL THEN
         FOREACH s IN ARRAY r.sizes LOOP
           INSERT INTO product_variants(product_id, size, color, stock_quantity)
-          VALUES (r.id, s, NULL, per_variant)
-          ON CONFLICT (product_id, color, size) DO NOTHING;
+          VALUES (r.id, UPPER(s), NULL, per_variant)
+          ON CONFLICT (product_id, color, size) DO UPDATE SET stock_quantity = EXCLUDED.stock_quantity;
         END LOOP;
       ELSE
         FOREACH s IN ARRAY r.sizes LOOP
           FOREACH c IN ARRAY r.colors LOOP
             INSERT INTO product_variants(product_id, size, color, stock_quantity)
-            VALUES (r.id, s, c, per_variant)
-            ON CONFLICT (product_id, color, size) DO NOTHING;
+            VALUES (r.id, UPPER(s), LOWER(c), per_variant)
+            ON CONFLICT (product_id, color, size) DO UPDATE SET stock_quantity = EXCLUDED.stock_quantity;
           END LOOP;
         END LOOP;
       END IF;

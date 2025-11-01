@@ -43,10 +43,65 @@ export function ProductDetails({ product, similarProducts = [] }) {
     async function loadVariants() {
       const { data } = await getProductVariants(product.id)
       setVariants(data)
-      setAvailability(buildAvailabilityMaps(data))
+      const m = buildAvailabilityMaps(data)
+      setAvailability(m)
+      // Auto-select: prefer size L if available else first size; then first available color for that size
+      const sizes = (product.sizes && product.sizes.length ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL'])
+      let defaultSize = sizes.includes('L') ? 'L' : sizes[0]
+      // Ensure defaultSize has at least one color available if colors exist
+      if (product.colors && product.colors.length) {
+        const availableColor = product.colors.find(c => variantInStockInternal(c, defaultSize, m))
+        if (!availableColor) {
+          // pick first size that has any available color
+          const sizeWithStock = sizes.find(sz => product.colors.some(c => variantInStockInternal(c, sz, m)))
+          if (sizeWithStock) defaultSize = sizeWithStock
+        }
+      }
+      setSelectedSize(defaultSize || "")
+
+      if (product.colors && product.colors.length) {
+        const firstAvailableColor = product.colors.find(c => variantInStockInternal(c, defaultSize, m)) || product.colors[0]
+        setSelectedColor(firstAvailableColor || "")
+      }
     }
     loadVariants()
   }, [product.id])
+
+  const variantInStockInternal = (color, size, maps = availability) => {
+    const key = `${(color || '').toLowerCase()}__${(size || '').toUpperCase()}`
+    const v = maps.byKey.get(key)
+    return !!v && (v.stock_quantity || 0) > 0
+  }
+
+  const variantInStock = (color, size) => variantInStockInternal(color, size, availability)
+
+  const overallInStock = () => {
+    if (variants.length > 0) {
+      return variants.some(v => (v.stock_quantity || 0) > 0)
+    }
+    return (product.stock_quantity || 0) > 0
+  }
+
+  // When selecting size, keep color if still available else clear
+  const onSelectSize = (size) => {
+    setSelectedSize(size)
+    if (product.colors && product.colors.length) {
+      if (!variantInStock(selectedColor, size)) {
+        const next = product.colors.find(c => variantInStock(c, size)) || ""
+        setSelectedColor(next)
+      }
+    }
+  }
+
+  // When selecting color, keep size if still available else clear
+  const onSelectColor = (color) => {
+    setSelectedColor(color)
+    if (selectedSize && !variantInStock(color, selectedSize)) {
+      const sizes = product.sizes && product.sizes.length ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']
+      const next = sizes.find(sz => variantInStock(color, sz)) || ""
+      setSelectedSize(next)
+    }
+  }
 
   // Handle image load error
   const handleImageError = (e) => {
@@ -120,12 +175,6 @@ export function ProductDetails({ product, similarProducts = [] }) {
     setWishlistLoading(false)
   }
 
-  const isOptionAvailable = (color, size) => {
-    const key = `${(color || '').toLowerCase()}__${(size || '').toUpperCase()}`
-    const v = availability.byKey.get(key)
-    return v && v.stock_quantity > 0
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation Bar */}
@@ -158,7 +207,7 @@ export function ProductDetails({ product, similarProducts = [] }) {
                 priority
                 onError={handleImageError}
               />
-              {product.stock_quantity === 0 && (
+              {!overallInStock() && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <Badge variant="destructive" className="text-lg">
                     Out of Stock
@@ -241,11 +290,11 @@ export function ProductDetails({ product, similarProducts = [] }) {
               </div>
               <div className="flex gap-3 flex-wrap">
                 {(product.sizes || ['S', 'M', 'L', 'XL', 'XXL']).map((size) => {
-                  const available = selectedColor ? isOptionAvailable(selectedColor, size) : true
+                  const available = selectedColor ? variantInStock(selectedColor, size) : variants.length === 0 ? (product.stock_quantity || 0) > 0 : true
                   return (
                     <button
                       key={size}
-                      onClick={() => setSelectedSize(size)}
+                      onClick={() => onSelectSize(size)}
                       disabled={selectedColor && !available}
                       className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all ${selectedSize === size
                         ? "bg-black text-white border-black"
@@ -269,11 +318,11 @@ export function ProductDetails({ product, similarProducts = [] }) {
                 </div>
                 <div className="flex gap-3 flex-wrap">
                   {product.colors.map((color) => {
-                    const available = selectedSize ? isOptionAvailable(color, selectedSize) : true
+                    const available = selectedSize ? variantInStock(color, selectedSize) : variants.length === 0 ? (product.stock_quantity || 0) > 0 : true
                     return (
                       <button
                         key={color}
-                        onClick={() => setSelectedColor(color)}
+                        onClick={() => onSelectColor(color)}
                         disabled={selectedSize && !available}
                         className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all capitalize ${selectedColor === color
                           ? "bg-black text-white border-black"
@@ -287,7 +336,7 @@ export function ProductDetails({ product, similarProducts = [] }) {
                 </div>
                 {selectedColor && selectedSize && (
                   <div className="text-sm">
-                    {isOptionAvailable(selectedColor, selectedSize) ? (
+                    {variantInStock(selectedColor, selectedSize) ? (
                       <span className="text-green-600">Selected color/size is available</span>
                     ) : (
                       <span className="text-red-600">Selected color is not available in this size</span>
@@ -303,14 +352,14 @@ export function ProductDetails({ product, similarProducts = [] }) {
                 <Button
                   className="flex-1 bg-black text-white hover:bg-gray-800 py-3 px-6 rounded-full font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                   onClick={handleAddToCart}
-                  disabled={loading || product.stock_quantity === 0 || !selectedSize || (product.colors && product.colors.length > 0 && !selectedColor) || (selectedColor && selectedSize && !isOptionAvailable(selectedColor, selectedSize))}
+                  disabled={loading || !overallInStock() || !selectedSize || (product.colors && product.colors.length > 0 && !selectedColor) || (selectedColor && selectedSize && !variantInStock(selectedColor, selectedSize))}
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       Adding...
                     </div>
-                  ) : product.stock_quantity === 0 ? (
+                  ) : !overallInStock() ? (
                     "Out of Stock"
                   ) : !selectedSize ? (
                     "Select Size"
