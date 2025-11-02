@@ -5,10 +5,12 @@ import { createBrowserClient } from "@supabase/ssr"
 import { Package, Truck, CheckCircle, Clock, XCircle, MapPin } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 export default function RealTimeOrderTracking({ orderId, initialOrder }) {
     const [order, setOrder] = useState(initialOrder)
     const [tracking, setTracking] = useState(initialOrder.order_tracking || [])
+    const [copied, setCopied] = useState(false)
 
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -95,6 +97,22 @@ export default function RealTimeOrderTracking({ orderId, initialOrder }) {
     const statusSteps = ['pending', 'confirmed', 'processing', 'shipped', 'delivered']
     const currentStepIndex = statusSteps.indexOf(order.status?.toLowerCase())
 
+    // Extract latest OTP from tracking messages (from most recent entries)
+    const latestOtpEntry = tracking.find(t => (t.status || '').toLowerCase() === 'otp')
+    const otpCode = latestOtpEntry ? String(latestOtpEntry.message || '').match(/\d{4,8}/)?.[0] : null
+    const orderStatus = (order.status || '').toLowerCase()
+
+    const copyOtp = async () => {
+        if (!otpCode) return
+        try {
+            await navigator.clipboard.writeText(otpCode)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+        } catch (e) {
+            // no-op
+        }
+    }
+
     return (
         <div className="space-y-6">
             {/* Current Status Overview */}
@@ -142,8 +160,8 @@ export default function RealTimeOrderTracking({ orderId, initialOrder }) {
                                 {statusSteps.map((step, index) => (
                                     <div key={step} className="flex items-center">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${index <= currentStepIndex
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-200 text-gray-600'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-gray-200 text-gray-600'
                                             }`}>
                                             {index + 1}
                                         </div>
@@ -163,6 +181,25 @@ export default function RealTimeOrderTracking({ orderId, initialOrder }) {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Delivery OTP Banner for customer when delivered */}
+            {otpCode && orderStatus === 'delivered' && (
+                <Card className="border-blue-200 bg-blue-50">
+                    <CardHeader>
+                        <CardTitle className="text-blue-900">Delivery OTP</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-blue-800 mb-3">Share this one-time code with the delivery person to receive your order.</p>
+                        <div className="flex items-center gap-3">
+                            <div className="text-2xl font-extrabold tracking-widest px-4 py-2 border-2 border-dashed border-blue-400 rounded bg-white text-blue-900 font-mono">
+                                {otpCode}
+                            </div>
+                            <Button size="sm" onClick={copyOtp}>Copy</Button>
+                            {copied && <span className="text-xs text-blue-700">Copied</span>}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Detailed Tracking Timeline */}
             <Card>

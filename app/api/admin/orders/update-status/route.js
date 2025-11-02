@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { getSupabaseServiceRoleClient } from "@/lib/supabase/service"
-import { sendOrderStatusUpdateEmail } from "@/lib/email-service"
+import { sendOrderStatusUpdateEmail, sendOrderCancellationNotificationToAdmin, sendOrderCancellationEmailToCustomer } from "@/lib/email-service"
 
 export async function POST(request) {
     try {
@@ -63,7 +63,7 @@ export async function POST(request) {
         // Check if order is cancelled - admin cannot update cancelled orders (case insensitive)
         if (oldStatus?.toLowerCase() === 'cancelled') {
             return NextResponse.json(
-                { error: "Cannot update status of cancelled orders. Once an order is cancelled by the customer, it cannot be modified." },
+                { error: "Cannot update status of cancelled orders. Once an order is cancelled, it cannot be modified." },
                 { status: 400 }
             )
         }
@@ -84,12 +84,67 @@ export async function POST(request) {
             )
         }
 
-        // Prevent setting status to cancelled via admin (only customers can cancel)
+        // Admin cancellation policy: allow only when current status is Pending
         if (status?.toLowerCase() === 'cancelled') {
-            return NextResponse.json(
-                { error: "Orders cannot be cancelled via admin panel. Only customers can cancel their own orders." },
-                { status: 400 }
-            )
+            if ((oldStatus || '').toLowerCase() !== 'pending') {
+                return NextResponse.json(
+                    { error: "Admin can cancel only when order is Pending. After confirmation, cancellation is not allowed." },
+                    { status: 400 }
+                )
+            }
+
+            // Perform cancellation
+            const { data: cancelledOrder, error: cancelErr } = await serviceClient
+                .from("orders")
+                .update({ status: 'cancelled', payment_status: 'refunded' })
+                .eq("id", orderId)
+                .select(`
+                *,
+                profiles (
+                  id,
+                  email,
+                  full_name
+                )
+              `)
+                .single()
+
+            if (cancelErr) {
+                console.error("Error cancelling order:", cancelErr)
+                return NextResponse.json(
+                    { error: "Failed to cancel order" },
+                    { status: 500 }
+                )
+            }
+
+            // Tracking entry for cancellation
+            const cancelMsg = message?.trim() || 'Order cancelled by admin before confirmation.'
+            const { error: trackingError } = await serviceClient
+                .from("order_tracking")
+                .insert({ order_id: orderId, status: 'cancelled', message: cancelMsg })
+
+            if (trackingError) {
+                console.error("Error adding cancellation tracking entry:", trackingError)
+            }
+
+            // Fetch items for email context
+            const { data: orderItems } = await serviceClient
+                .from('order_items')
+                .select('product_name, quantity, size, color')
+                .eq('order_id', orderId)
+
+            // Send emails
+            try {
+                if (cancelledOrder?.profiles?.email) {
+                    const wasPaid = String(currentOrder?.payment_status || '').toLowerCase() === 'paid'
+                    const paymentMethod = currentOrder?.payment_method
+                    await sendOrderCancellationEmailToCustomer(cancelledOrder, cancelledOrder.profiles.email, { wasPaid, paymentMethod })
+                }
+                await sendOrderCancellationNotificationToAdmin(cancelledOrder, orderItems || [], cancelledOrder?.profiles || null)
+            } catch (emailErr) {
+                console.error('Error sending cancellation emails:', emailErr)
+            }
+
+            return NextResponse.json({ success: true, message: 'Order cancelled successfully', order: cancelledOrder })
         }
 
         // Only proceed if status is actually changing
@@ -124,7 +179,7 @@ export async function POST(request) {
             })
         }
 
-        // Update order status
+        // Update order status (non-cancellation flow)
         const { data: updatedOrder, error: updateError } = await serviceClient
             .from("orders")
             .update({ status })
@@ -170,7 +225,7 @@ export async function POST(request) {
             ? `${baseMsg}\n\nDelivery OTP: ${otpCode}. When receiving the order use this OTP.`
             : baseMsg
 
-        // Add tracking entry
+        // Add tracking entry for the status change
         const { error: trackingError } = await serviceClient
             .from("order_tracking")
             .insert({
@@ -182,6 +237,20 @@ export async function POST(request) {
         if (trackingError) {
             console.error("Error adding tracking entry:", trackingError)
             // Don't fail the request if tracking fails
+        }
+
+        // Add a separate OTP tracking entry for easier verification/display
+        if (otpCode) {
+            const { error: otpTrackErr } = await serviceClient
+                .from("order_tracking")
+                .insert({
+                    order_id: orderId,
+                    status: 'otp',
+                    message: `Your delivery OTP is ${otpCode}`
+                })
+            if (otpTrackErr) {
+                console.error('Failed to insert OTP tracking entry:', otpTrackErr)
+            }
         }
 
         // Send email notification to customer if they have an email

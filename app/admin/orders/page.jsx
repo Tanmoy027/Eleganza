@@ -1,5 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import OrdersTable from "@/components/admin/orders-table"
+import DeliveryVerifyOTP from "@/components/admin/delivery-verify-otp"
 
 // Add revalidation to ensure fresh data
 export const revalidate = 0
@@ -13,9 +14,10 @@ export default async function AdminOrdersPage() {
     .order("created_at", { ascending: false })
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-8">Orders</h1>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold mb-2">Orders</h1>
       <OrdersTable orders={orders || []} />
+      <DeliveryVerifyOTP />
     </div>
   )
 }

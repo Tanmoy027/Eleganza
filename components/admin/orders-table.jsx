@@ -35,9 +35,9 @@ export default function OrdersTable({ orders }) {
       return
     }
 
-    // Prevent selecting cancelled from admin dropdown
-    if (newStatus?.toLowerCase() === 'cancelled') {
-      alert("Admins cannot set orders to Cancelled. Customers can cancel their own orders.")
+    // Allow admin cancel only when current status is pending
+    if (newStatus?.toLowerCase() === 'cancelled' && (currentOrder?.status || '').toLowerCase() !== 'pending') {
+      alert("Admin can only cancel orders while they are Pending. After Confirmed, cancellation is not allowed.")
       setUpdating(null)
       return
     }
@@ -124,7 +124,7 @@ export default function OrdersTable({ orders }) {
                   onValueChange={(value) => handleStatusChange(order.id, value)}
                   disabled={updating === order.id || isCancelled(order)}
                 >
-                  <SelectTrigger className={`w-32 ${isCancelled(order) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <SelectTrigger className={`w-40 ${isCancelled(order) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -133,6 +133,11 @@ export default function OrdersTable({ orders }) {
                     <SelectItem value="processing">Processing</SelectItem>
                     <SelectItem value="shipped">Shipped</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    {/* Allow admin to set Cancelled only when order is currently Pending */}
+                    {String(order.status).toLowerCase() === 'pending' && (
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 {isCancelled(order) && (
