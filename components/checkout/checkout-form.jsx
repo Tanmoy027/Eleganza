@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,10 +9,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
 import { createCheckoutSession } from "@/lib/stripe"
+import { getSavedAddresses, saveAddress } from "@/lib/addresses"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 
 export function CheckoutForm({ cartItems, total }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [savedAddresses, setSavedAddresses] = useState([])
+  const [selectedAddressId, setSelectedAddressId] = useState("new")
+  const [saveForNext, setSaveForNext] = useState(true)
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -24,11 +30,75 @@ export function CheckoutForm({ cartItems, total }) {
     notes: "",
   })
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { addresses } = await getSavedAddresses()
+        setSavedAddresses(addresses)
+        if (addresses && addresses.length > 0) {
+          const def = addresses.find(a => a.is_default) || addresses[0]
+          setSelectedAddressId(def.id)
+          setFormData((prev) => ({
+            ...prev,
+            fullName: def.fullName || "",
+            email: def.email || "",
+            phone: def.phone || "",
+            address: def.address || "",
+            city: def.city || "",
+            state: def.state || "",
+            zipCode: def.zipCode || "",
+          }))
+        }
+      } catch (e) {
+        console.warn("Failed to load saved addresses", e)
+      }
+    }
+    load()
+  }, [])
+
+  const onSelectAddress = (value) => {
+    setSelectedAddressId(value)
+    if (value === "new") {
+      setFormData((prev) => ({ ...prev, fullName: "", email: "", phone: "", address: "", city: "", state: "", zipCode: "" }))
+      return
+    }
+    const found = savedAddresses.find((a) => a.id === value)
+    if (found) {
+      setFormData((prev) => ({
+        ...prev,
+        fullName: found.fullName || "",
+        email: found.email || "",
+        phone: found.phone || "",
+        address: found.address || "",
+        city: found.city || "",
+        state: found.state || "",
+        zipCode: found.zipCode || "",
+      }))
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // If entering a new address and opted in, save it as default
+      if (selectedAddressId === "new" && saveForNext) {
+        try {
+          await saveAddress({
+            fullName: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
+            address: formData.address,
+            city: formData.city,
+            state: formData.state,
+            zipCode: formData.zipCode,
+          }, true)
+        } catch (err) {
+          console.warn("Saving address failed:", err)
+        }
+      }
+
       const { sessionId, error } = await createCheckoutSession(cartItems, formData, total)
 
       if (error) {
@@ -57,6 +127,27 @@ export function CheckoutForm({ cartItems, total }) {
           <CardTitle>Shipping Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Saved addresses selector */}
+          {savedAddresses.length > 0 && (
+            <div className="space-y-2">
+              <Label>Choose Saved Address</Label>
+              <Select value={selectedAddressId} onValueChange={onSelectAddress}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an address" />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedAddresses.map((addr) => (
+                    <SelectItem key={addr.id} value={addr.id}>
+                      {addr.label ? `${addr.label} — ` : ""}{addr.fullName}, {addr.address}, {addr.city}
+                      {addr.is_default ? " (Default)" : ""}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="new">Use a new address</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name *</Label>
@@ -129,6 +220,14 @@ export function CheckoutForm({ cartItems, total }) {
               />
             </div>
           </div>
+
+          {/* Save new address toggle - only meaningful when entering new */}
+          {selectedAddressId === "new" && (
+            <div className="flex items-center space-x-2">
+              <Checkbox id="saveAddress" checked={saveForNext} onCheckedChange={(v) => setSaveForNext(!!v)} />
+              <Label htmlFor="saveAddress">Save this address for next time</Label>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Order Notes (Optional)</Label>
