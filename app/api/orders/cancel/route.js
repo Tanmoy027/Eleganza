@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { sendOrderCancellationNotificationToAdmin } from "@/lib/email-service"
+import { sendOrderCancellationEmailToCustomer } from "@/lib/email-service"
 
 export async function POST(request) {
     try {
@@ -50,8 +51,9 @@ export async function POST(request) {
             )
         }
 
-        // Check if order can be cancelled based on current status
-        if (['confirmed', 'processing', 'shipped', 'delivered', 'completed'].includes(order.status)) {
+        // Check if order can be cancelled based on current status (case-insensitive)
+        const normalizedStatus = (order.status || '').toLowerCase()
+        if (["confirmed", "processing", "shipped", "delivered", "completed"].includes(normalizedStatus)) {
             return NextResponse.json(
                 { error: "Order cannot be cancelled once it has been confirmed or is in progress" },
                 { status: 400 }
@@ -93,6 +95,22 @@ export async function POST(request) {
         } catch (emailError) {
             console.error('❌ Error sending order cancellation notification to admin:', emailError)
             // Don't throw error for email failure - order cancellation should still succeed
+        }
+
+        // Send email to customer about cancellation and refund info
+        try {
+            const customerEmail = order?.profiles?.email || order?.email || user?.email
+            if (customerEmail) {
+                const wasPaid = String(order?.payment_status || '').toLowerCase() === 'paid'
+                const paymentMethod = order?.payment_method
+                await sendOrderCancellationEmailToCustomer(order, customerEmail, { wasPaid, paymentMethod })
+                console.log('📧 Order cancellation email sent to customer successfully')
+            } else {
+                console.warn('⚠️ No customer email found to send cancellation notice')
+            }
+        } catch (emailError) {
+            console.error('❌ Error sending order cancellation email to customer:', emailError)
+            // Do not fail the API due to email error
         }
 
         return NextResponse.json({
