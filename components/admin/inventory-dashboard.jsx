@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { getInventoryStatus, recordInventoryMovement, updateVariant, setProductDiscount } from "@/lib/inventory"
+import { getInventoryStatus, /* recordInventoryMovement, */ updateVariant, setProductDiscount } from "@/lib/inventory"
 import { Loader2, Plus, Minus, Percent, RefreshCw, Bell } from "lucide-react"
 
 export default function InventoryDashboard() {
@@ -38,18 +38,35 @@ export default function InventoryDashboard() {
         )
     }, [rows, filters])
 
-    const changeStock = async (variant_id, product_id, delta) => {
+    // Optimistic stock change without table reload; persist via direct variant update
+    const changeStock = async (variant_id, delta) => {
         setUpdatingId(variant_id)
-        await recordInventoryMovement({ product_id, variant_id, quantity: Math.abs(delta), movement_type: delta >= 0 ? 'in' : 'out', reason: delta >= 0 ? 'Manual restock' : 'Manual deduction' })
-        // Refresh table only; do not full page reload
-        await load()
-        setUpdatingId(null)
+        // Compute new qty from current state
+        const current = rows.find(r => r.variant_id === variant_id)
+        const newQty = Math.max(0, ((current?.stock_quantity ?? 0) + delta))
+
+        // Optimistically update UI
+        setRows(prev => prev.map(r => r.variant_id === variant_id
+            ? { ...r, stock_quantity: newQty, needs_restock: newQty <= (r.restock_threshold ?? 0) }
+            : r
+        ))
+
+        try {
+            await updateVariant(variant_id, { stock_quantity: newQty })
+        } finally {
+            setUpdatingId(null)
+        }
     }
 
     const setThreshold = async (variant_id, value) => {
         setUpdatingId(variant_id)
         await updateVariant(variant_id, { restock_threshold: Math.max(0, parseInt(value || '0', 10)) })
-        await load()
+        // Reflect threshold change locally without full reload
+        const newThreshold = Math.max(0, parseInt(value || '0', 10))
+        setRows(prev => prev.map(r => r.variant_id === variant_id
+            ? { ...r, restock_threshold: newThreshold, needs_restock: (r.stock_quantity ?? 0) <= newThreshold }
+            : r
+        ))
         setUpdatingId(null)
     }
 
@@ -85,11 +102,11 @@ export default function InventoryDashboard() {
                         <SelectItem value="yes">Needs Restock</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
-                <Button variant="secondary" onClick={applyDiscounts} disabled={discounting}>
+                <Button type="button" variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
+                <Button type="button" variant="secondary" onClick={applyDiscounts} disabled={discounting}>
                     {discounting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Percent className="w-4 h-4 mr-2" />} Apply Stale Discounts
                 </Button>
-                {filters.productId && <Button variant="ghost" onClick={clearFocus}>Clear Focus</Button>}
+                {filters.productId && <Button type="button" variant="ghost" onClick={clearFocus}>Clear Focus</Button>}
             </div>
 
             <div className="overflow-auto">
@@ -116,7 +133,18 @@ export default function InventoryDashboard() {
                                 <TableCell className="flex items-center gap-2">
                                     <span>{row.product_name}</span>
                                     {row.needs_restock && (
-                                        <button title="Low stock" onClick={() => focusLowStock(row.product_id)} className="text-red-600"><Bell className="w-4 h-4" /></button>
+                                        <button type="button" title="Low stock" onClick={() => focusLowStock(row.product_id)} className="text-red-600"><Bell className="w-4 h-4" /></button>
+                                    )}
+                                    {/* Black notification for stale (no sales in 7+ days) */}
+                                    {(((row.days_without_sale ?? (row.last_sold_at ? Math.floor((Date.now() - new Date(row.last_sold_at).getTime()) / 86400000) : Infinity)) >= 7) && ((row.stock_quantity ?? 0) > 0)) && (
+                                        <button
+                                            type="button"
+                                            title="No sales in 7+ days • Click to set a discount"
+                                            onClick={() => setDiscountForProduct(row.product_id)}
+                                            className="text-black"
+                                        >
+                                            <Bell className="w-4 h-4" />
+                                        </button>
                                     )}
                                 </TableCell>
                                 <TableCell className="capitalize">{row.color || '-'}</TableCell>
@@ -135,9 +163,9 @@ export default function InventoryDashboard() {
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
-                                        <Button size="sm" onClick={() => changeStock(row.variant_id, row.product_id, -1)} disabled={updatingId === row.variant_id}><Minus className="w-4 h-4" /></Button>
-                                        <Button size="sm" onClick={() => changeStock(row.variant_id, row.product_id, +1)} disabled={updatingId === row.variant_id}><Plus className="w-4 h-4" /></Button>
-                                        <Button size="sm" variant="outline" onClick={() => setDiscountForProduct(row.product_id)}><Percent className="w-4 h-4" /></Button>
+                                        <Button type="button" size="sm" onClick={() => changeStock(row.variant_id, -1)} disabled={updatingId === row.variant_id}><Minus className="w-4 h-4" /></Button>
+                                        <Button type="button" size="sm" onClick={() => changeStock(row.variant_id, +1)} disabled={updatingId === row.variant_id}><Plus className="w-4 h-4" /></Button>
+                                        <Button type="button" size="sm" variant="outline" onClick={() => setDiscountForProduct(row.product_id)}><Percent className="w-4 h-4" /></Button>
                                     </div>
                                 </TableCell>
                             </TableRow>
