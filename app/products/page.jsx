@@ -1,40 +1,88 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+"use client"
+
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { ProductCard } from "@/components/products/product-card"
+import PriceRangeFilter from "@/components/PriceRangeFilter"
 
-export default async function ProductsPage({ searchParams }) {
-  const params = await searchParams
-  const supabase = await getSupabaseServerClient()
+export default function ProductsPage() {
+  const searchParams = useSearchParams()
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [minPrice, setMinPrice] = useState(null)
+  const [maxPrice, setMaxPrice] = useState(null)
 
-  let query = supabase.from("products").select("*").eq("is_active", true)
+  // Get URL parameters
+  const category = searchParams.get('category')
+  const clothing_type = searchParams.get('clothing_type')
+  const occasion = searchParams.get('occasion')
+  const season = searchParams.get('season')
 
-  if (params.category) {
-    query = query.eq("category", params.category)
-  }
-  if (params.clothing_type) {
-    query = query.eq("clothing_type", params.clothing_type)
-  }
-  if (params.occasion) {
-    query = query.eq("occasion", params.occasion)
-  }
-  if (params.season) {
-    query = query.eq("season", params.season)
+  useEffect(() => {
+    async function fetchProducts() {
+      const supabase = getSupabaseBrowserClient()
+      let query = supabase.from("products").select("*").eq("is_active", true)
+
+      if (category) {
+        query = query.eq("category", category)
+      }
+      if (clothing_type) {
+        query = query.eq("clothing_type", clothing_type)
+      }
+      if (occasion) {
+        query = query.eq("occasion", occasion)
+      }
+      if (season) {
+        query = query.eq("season", season)
+      }
+
+      const { data } = await query.order("created_at", { ascending: false })
+      if (data) {
+        setProducts(data)
+      }
+      setLoading(false)
+    }
+
+    fetchProducts()
+  }, [category, clothing_type, occasion, season])
+
+  // Handle price range change
+  const handlePriceChange = (min, max) => {
+    setMinPrice(min)
+    setMaxPrice(max)
   }
 
-  const { data: products } = await query.order("created_at", { ascending: false })
+  // Filter products by price range
+  const filteredProducts = products.filter((product) => {
+    const price = Number(product.price)
+    const priceMatch =
+      (minPrice === null || price >= minPrice) &&
+      (maxPrice === null || price <= maxPrice)
+    return priceMatch
+  })
 
   // Determine the page title and description based on filters
   let pageTitle = "Products"
   let pageDescription = "Browse our collection"
 
-  if (params.season) {
-    pageTitle = `${params.season.charAt(0).toUpperCase() + params.season.slice(1)} Collection`
-    pageDescription = `Discover our ${params.season} seasonal collection`
-  } else if (params.occasion) {
-    pageTitle = `${params.occasion.charAt(0).toUpperCase() + params.occasion.slice(1)} Collection`
-    pageDescription = `Perfect outfits for ${params.occasion} occasions`
-  } else if (params.category) {
-    pageTitle = `${params.category.charAt(0).toUpperCase() + params.category.slice(1)}`
-    pageDescription = `Browse our ${params.category} collection`
+  if (season) {
+    pageTitle = `${season.charAt(0).toUpperCase() + season.slice(1)} Collection`
+    pageDescription = `Discover our ${season} seasonal collection`
+  } else if (occasion) {
+    pageTitle = `${occasion.charAt(0).toUpperCase() + occasion.slice(1)} Collection`
+    pageDescription = `Perfect outfits for ${occasion} occasions`
+  } else if (category) {
+    pageTitle = `${category.charAt(0).toUpperCase() + category.slice(1)}`
+    pageDescription = `Browse our ${category} collection`
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-gray-500">Loading products...</p>
+      </div>
+    )
   }
 
   return (
@@ -46,40 +94,49 @@ export default async function ProductsPage({ searchParams }) {
           <p className="text-gray-600 text-sm tracking-widest uppercase">{pageDescription}</p>
 
           {/* Active Filters Display */}
-          {(params.season || params.occasion || params.category || params.clothing_type) && (
+          {(season || occasion || category || clothing_type) && (
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               <span className="text-sm text-gray-500">Filtered by:</span>
-              {params.season && (
+              {season && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  Season: {params.season}
+                  Season: {season}
                 </span>
               )}
-              {params.occasion && (
+              {occasion && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  Occasion: {params.occasion}
+                  Occasion: {occasion}
                 </span>
               )}
-              {params.category && (
+              {category && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  Category: {params.category}
+                  Category: {category}
                 </span>
               )}
-              {params.clothing_type && (
+              {clothing_type && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                  Type: {params.clothing_type}
+                  Type: {clothing_type}
                 </span>
               )}
             </div>
           )}
         </div>
+
+        {/* Price Range Filter */}
+        <div className="flex justify-center mb-6 md:mb-8">
+          <PriceRangeFilter
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onPriceChange={handlePriceChange}
+          />
+        </div>
       </div>
 
       {/* Products Section */}
-      {products && products.length > 0 ? (
+      {filteredProducts && filteredProducts.length > 0 ? (
         <div className="flex-1 flex justify-center">
           <div className="container mx-auto px-4 pb-12 max-w-7xl">
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
@@ -95,7 +152,7 @@ export default async function ProductsPage({ searchParams }) {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
             <p className="text-gray-500 mb-6">
-              {params.season || params.occasion || params.category || params.clothing_type
+              {season || occasion || category || clothing_type
                 ? "Try adjusting your filters or browse all products."
                 : "Check back later for new arrivals."}
             </p>

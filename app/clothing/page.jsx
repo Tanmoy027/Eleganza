@@ -3,13 +3,16 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Grid3X3, List, ChevronDown, Truck, RotateCcw, Headphones, Shield } from "lucide-react"
+import { Truck, RotateCcw, Headphones, Shield } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { getProductMainImage, handleImageError } from "@/lib/image-utils"
+import PriceRangeFilter from "@/components/PriceRangeFilter"
 
 export default function ClothingPage() {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedClothingType, setSelectedClothingType] = useState("all")
+  const [minPrice, setMinPrice] = useState(null)
+  const [maxPrice, setMaxPrice] = useState(null)
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -97,7 +100,13 @@ export default function ClothingPage() {
     setSelectedClothingType("all") // Reset clothing type when category changes
   }
 
-  // Filter products based on both category and clothing type
+  // Handle price range change
+  const handlePriceChange = (min, max) => {
+    setMinPrice(min)
+    setMaxPrice(max)
+  }
+
+  // Filter products based on category, clothing type, and price range
   const filteredProducts = products.filter((product) => {
     // First filter by category
     const categoryMatch = selectedCategory === "all" || product.category?.toLowerCase() === selectedCategory
@@ -107,7 +116,13 @@ export default function ClothingPage() {
       selectedClothingType === "all" ||
       product.clothing_type === selectedClothingType
 
-    return categoryMatch && clothingTypeMatch
+    // Filter by price range
+    const price = Number(product.price)
+    const priceMatch =
+      (minPrice === null || price >= minPrice) &&
+      (maxPrice === null || price <= maxPrice)
+
+    return categoryMatch && clothingTypeMatch && priceMatch
   })
 
   if (loading) {
@@ -140,28 +155,28 @@ export default function ClothingPage() {
         <div className="flex flex-wrap justify-center gap-2 mb-6 md:mb-8">
           <button
             onClick={() => handleCategoryChange("all")}
-            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "all" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase rounded transition-colors ${selectedCategory === "all" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50 bg-white text-gray-700"
               }`}
           >
             ALL CLOTHING
           </button>
           <button
             onClick={() => handleCategoryChange("women")}
-            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "women" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase rounded transition-colors ${selectedCategory === "women" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50 bg-white text-gray-700"
               }`}
           >
             WOMEN
           </button>
           <button
             onClick={() => handleCategoryChange("men")}
-            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "men" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase rounded transition-colors ${selectedCategory === "men" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50 bg-white text-gray-700"
               }`}
           >
             MEN
           </button>
           <button
             onClick={() => handleCategoryChange("child")}
-            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "child" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50"
+            className={`px-3 md:px-4 py-2 text-xs font-medium uppercase rounded transition-colors ${selectedCategory === "child" ? "bg-black text-white" : "border border-gray-300 hover:bg-gray-50 bg-white text-gray-700"
               }`}
           >
             CHILD
@@ -196,12 +211,18 @@ export default function ClothingPage() {
           </div>
         )}
 
+        {/* Price Range Filter */}
+        <div className="flex justify-center mb-6 md:mb-8">
+          <PriceRangeFilter
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onPriceChange={handlePriceChange}
+          />
+        </div>
+
         {/* Product Controls */}
-        <div className="flex items-center justify-between mb-6 md:mb-8">
-          <div className="flex items-center space-x-4">
-            <Grid3X3 className="w-5 h-5" />
-            <List className="w-5 h-5 text-gray-400" />
-          </div>
+        <div className="flex items-center justify-center mb-6 md:mb-8">
+          {/* Removed grid/list icons and sort by UI */}
 
           <div className="text-sm text-gray-600">
             {filteredProducts.length} PRODUCT{filteredProducts.length !== 1 ? 'S' : ''}
@@ -211,13 +232,15 @@ export default function ClothingPage() {
                 {selectedClothingType !== "all" && ` • ${clothingTypes[selectedCategory]?.find(t => t.value === selectedClothingType)?.label || selectedClothingType}`}
               </span>
             )}
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 cursor-pointer">
-              <span className="text-sm">SORT BY</span>
-              <ChevronDown className="w-4 h-4" />
-            </div>
+            {(minPrice !== null || maxPrice !== null) && (
+              <span className="ml-1 text-xs text-gray-500">
+                • {minPrice !== null && maxPrice !== null
+                  ? `৳${minPrice} - ৳${maxPrice}`
+                  : minPrice !== null
+                    ? `৳${minPrice}+`
+                    : `Up to ৳${maxPrice}`}
+              </span>
+            )}
           </div>
         </div>
 

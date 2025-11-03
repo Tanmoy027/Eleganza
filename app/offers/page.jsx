@@ -3,12 +3,15 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Grid3X3, List, ChevronDown, Truck, RotateCcw, Headphones, Shield, Tag } from "lucide-react"
+import { Truck, RotateCcw, Headphones, Shield, Tag } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { getProductMainImage, handleImageError } from "@/lib/image-utils"
+import PriceRangeFilter from "@/components/PriceRangeFilter"
 
 export default function OffersPage() {
     const [selectedCategory, setSelectedCategory] = useState("all")
+    const [minPrice, setMinPrice] = useState(null)
+    const [maxPrice, setMaxPrice] = useState(null)
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
 
@@ -57,12 +60,24 @@ export default function OffersPage() {
         }
 
         fetchProducts()
-    }, [])
+    }, [])    // Handle price range change
+    const handlePriceChange = (min, max) => {
+        setMinPrice(min)
+        setMaxPrice(max)
+    }
 
-    // Filter products by category
+    // Filter products by category and price range
     const filteredProducts = products.filter((product) => {
-        if (selectedCategory === "all") return true
-        return product.category?.toLowerCase() === selectedCategory
+        // Filter by category
+        const categoryMatch = selectedCategory === "all" || product.category?.toLowerCase() === selectedCategory
+
+        // Filter by price range (use discount price if available, otherwise regular price)
+        const price = product.discount_price && product.discount_price > 0 ? Number(product.discount_price) : Number(product.price)
+        const priceMatch =
+            (minPrice === null || price >= minPrice) &&
+            (maxPrice === null || price <= maxPrice)
+
+        return categoryMatch && priceMatch
     })
 
     if (loading) {
@@ -132,16 +147,20 @@ export default function OffersPage() {
                             }`}
                     >
                         CHILD
-                    </button>
+                    </button>                </div>
+
+                {/* Price Range Filter */}
+                <div className="flex justify-center mb-6 md:mb-8">
+                    <PriceRangeFilter
+                        minPrice={minPrice}
+                        maxPrice={maxPrice}
+                        onPriceChange={handlePriceChange}
+                    />
                 </div>
 
                 {/* Product Controls */}
-                <div className="flex items-center justify-between mb-6 md:mb-8">
-                    <div className="flex items-center space-x-4">
-                        <Grid3X3 className="w-5 h-5" />
-                        <List className="w-5 h-5 text-gray-400" />
-                    </div>
-
+                <div className="flex items-center justify-center mb-6 md:mb-8">
+                    {/* Removed grid/list icons and sort by UI */}
                     <div className="text-sm text-gray-600">
                         {filteredProducts.length} OFFER{filteredProducts.length !== 1 ? 'S' : ''}
                         {selectedCategory !== "all" && (
@@ -149,13 +168,6 @@ export default function OffersPage() {
                                 • {selectedCategory.toUpperCase()}
                             </span>
                         )}
-                    </div>
-
-                    <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2 cursor-pointer">
-                            <span className="text-sm">SORT BY DISCOUNT</span>
-                            <ChevronDown className="w-4 h-4" />
-                        </div>
                     </div>
                 </div>
 
