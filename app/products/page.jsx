@@ -1,12 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { ProductCard } from "@/components/products/product-card"
 import PriceRangeFilter from "@/components/PriceRangeFilter"
 
 export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><p className="text-gray-500">Loading products...</p></div>}>
+      <ProductsPageContent />
+    </Suspense>
+  )
+}
+
+function ProductsPageContent() {
   const searchParams = useSearchParams()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
