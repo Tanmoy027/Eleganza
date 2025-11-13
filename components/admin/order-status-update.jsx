@@ -19,10 +19,22 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
     // Update local status when currentStatus prop changes
     useEffect(() => {
         setStatus(currentStatus)
-    }, [currentStatus])
-
-    // Check if the order is cancelled (handle both cases)
+    }, [currentStatus])    // Check if the order is cancelled (handle both cases)
     const isOrderCancelled = currentStatus?.toLowerCase() === 'cancelled'
+
+    const getStatusOrder = (status) => {
+        const statusHierarchy = {
+            'pending': 1,
+            'confirmed': 2,
+            'processing': 3,
+            'shipped': 4,
+            'delivered': 5,
+            'completed': 6,
+            'cancelled': 0
+        }
+        return statusHierarchy[status?.toLowerCase()] || 0
+    }
+
     const statusOptions = [
         { value: "pending", label: "Pending" },
         { value: "confirmed", label: "Confirmed" },
@@ -34,9 +46,7 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
     ]
 
     const handleStatusUpdate = async () => {
-        if (!status) return
-
-        // Additional frontend validation
+        if (!status) return        // Additional frontend validation
         if (isOrderCancelled) {
             toast({
                 title: "Cannot Update",
@@ -50,6 +60,19 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
             toast({
                 title: "Not Allowed",
                 description: "Admins cannot set orders to Cancelled.",
+                variant: "destructive",
+            })
+            return
+        }
+
+        // Prevent any backwards status changes
+        const currentStatusOrder = getStatusOrder(currentStatus)
+        const newStatusOrder = getStatusOrder(status)
+
+        if (newStatusOrder < currentStatusOrder) {
+            toast({
+                title: "Invalid Status Change",
+                description: "Cannot change order status backwards. Orders can only progress forward through the status hierarchy.",
                 variant: "destructive",
             })
             return
@@ -172,10 +195,13 @@ export default function OrderStatusUpdate({ orderId, currentStatus }) {
                     >
                         <SelectTrigger className={isOrderCancelled ? "opacity-50 cursor-not-allowed" : ""}>
                             <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
+                        </SelectTrigger>                        <SelectContent>
                             {statusOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
+                                <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                    disabled={getStatusOrder(option.value) < getStatusOrder(currentStatus)}
+                                >
                                     {option.label}
                                 </SelectItem>
                             ))}

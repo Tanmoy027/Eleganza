@@ -82,9 +82,19 @@ export async function POST(request) {
                 { error: "This order has a cancellation record and cannot be modified." },
                 { status: 400 }
             )
-        }
-
-        // Admin cancellation policy: allow only when current status is Pending
+        }        // Helper function to get status hierarchy order
+        const getStatusOrder = (status) => {
+            const statusHierarchy = {
+                'pending': 1,
+                'confirmed': 2,
+                'processing': 3,
+                'shipped': 4,
+                'delivered': 5,
+                'completed': 6,
+                'cancelled': 0
+            }
+            return statusHierarchy[status?.toLowerCase()] || 0
+        }        // Admin cancellation policy: allow only when current status is Pending
         if (status?.toLowerCase() === 'cancelled') {
             if ((oldStatus || '').toLowerCase() !== 'pending') {
                 return NextResponse.json(
@@ -142,9 +152,18 @@ export async function POST(request) {
                 await sendOrderCancellationNotificationToAdmin(cancelledOrder, orderItems || [], cancelledOrder?.profiles || null)
             } catch (emailErr) {
                 console.error('Error sending cancellation emails:', emailErr)
-            }
+            } return NextResponse.json({ success: true, message: 'Order cancelled successfully', order: cancelledOrder })
+        }
 
-            return NextResponse.json({ success: true, message: 'Order cancelled successfully', order: cancelledOrder })
+        // Prevent any backwards status changes for non-cancellation updates
+        const currentStatusOrder = getStatusOrder(oldStatus)
+        const newStatusOrder = getStatusOrder(status)
+
+        if (newStatusOrder < currentStatusOrder) {
+            return NextResponse.json(
+                { error: "Cannot change order status backwards. Orders can only progress forward through the status hierarchy." },
+                { status: 400 }
+            )
         }
 
         // Only proceed if status is actually changing

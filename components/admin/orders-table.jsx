@@ -24,6 +24,19 @@ export default function OrdersTable({ orders }) {
     return false
   }
 
+  const getStatusOrder = (status) => {
+    const statusHierarchy = {
+      'pending': 1,
+      'confirmed': 2,
+      'processing': 3,
+      'shipped': 4,
+      'delivered': 5,
+      'completed': 6,
+      'cancelled': 0
+    }
+    return statusHierarchy[status?.toLowerCase()] || 0
+  }
+
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId)
 
@@ -38,6 +51,16 @@ export default function OrdersTable({ orders }) {
     // Allow admin cancel only when current status is pending
     if (newStatus?.toLowerCase() === 'cancelled' && (currentOrder?.status || '').toLowerCase() !== 'pending') {
       alert("Admin can only cancel orders while they are Pending. After Confirmed, cancellation is not allowed.")
+      setUpdating(null)
+      return
+    }
+
+    // Prevent any backwards status changes (except for cancellation from pending)
+    const currentStatusOrder = getStatusOrder(currentOrder?.status)
+    const newStatusOrder = getStatusOrder(newStatus)
+
+    if (newStatusOrder < currentStatusOrder && newStatus?.toLowerCase() !== 'cancelled') {
+      alert("Cannot change order status backwards. Orders can only progress forward through the status hierarchy.")
       setUpdating(null)
       return
     }
@@ -128,12 +151,43 @@ export default function OrdersTable({ orders }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="shipped">Shipped</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
+                    {/* Show all options but disable backwards ones */}
+                    <SelectItem
+                      value="pending"
+                      disabled={getStatusOrder('pending') < getStatusOrder(order.status)}
+                    >
+                      Pending
+                    </SelectItem>
+                    <SelectItem
+                      value="confirmed"
+                      disabled={getStatusOrder('confirmed') < getStatusOrder(order.status)}
+                    >
+                      Confirmed
+                    </SelectItem>
+                    <SelectItem
+                      value="processing"
+                      disabled={getStatusOrder('processing') < getStatusOrder(order.status)}
+                    >
+                      Processing
+                    </SelectItem>
+                    <SelectItem
+                      value="shipped"
+                      disabled={getStatusOrder('shipped') < getStatusOrder(order.status)}
+                    >
+                      Shipped
+                    </SelectItem>
+                    <SelectItem
+                      value="delivered"
+                      disabled={getStatusOrder('delivered') < getStatusOrder(order.status)}
+                    >
+                      Delivered
+                    </SelectItem>
+                    <SelectItem
+                      value="completed"
+                      disabled={getStatusOrder('completed') < getStatusOrder(order.status)}
+                    >
+                      Completed
+                    </SelectItem>
                     {/* Allow admin to set Cancelled only when order is currently Pending */}
                     {String(order.status).toLowerCase() === 'pending' && (
                       <SelectItem value="cancelled">Cancelled</SelectItem>

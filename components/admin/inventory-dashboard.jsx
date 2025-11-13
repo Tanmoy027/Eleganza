@@ -36,9 +36,7 @@ export default function InventoryDashboard() {
             (r.color || '').toLowerCase().includes(s) ||
             (r.size || '').toLowerCase().includes(s)
         )
-    }, [rows, filters])
-
-    // Optimistic stock change without table reload; persist via direct variant update
+    }, [rows, filters])    // Optimistic stock change without table reload; persist via direct variant update
     const changeStock = async (variant_id, delta) => {
         setUpdatingId(variant_id)
         // Compute new qty from current state
@@ -52,7 +50,26 @@ export default function InventoryDashboard() {
         ))
 
         try {
-            await updateVariant(variant_id, { stock_quantity: newQty })
+            const { data, error } = await updateVariant(variant_id, { stock_quantity: newQty })
+            if (error) {
+                console.error('Stock update error:', error)
+                // Revert optimistic update on error
+                setRows(prev => prev.map(r => r.variant_id === variant_id
+                    ? { ...r, stock_quantity: current?.stock_quantity ?? 0, needs_restock: (current?.stock_quantity ?? 0) <= (r.restock_threshold ?? 0) }
+                    : r
+                ))
+            } else {
+                // Force a reload after successful update to ensure consistency
+                // This ensures the main product stock is properly updated via triggers
+                await load()
+            }
+        } catch (err) {
+            console.error('Stock update failed:', err)
+            // Revert optimistic update on error
+            setRows(prev => prev.map(r => r.variant_id === variant_id
+                ? { ...r, stock_quantity: current?.stock_quantity ?? 0, needs_restock: (current?.stock_quantity ?? 0) <= (r.restock_threshold ?? 0) }
+                : r
+            ))
         } finally {
             setUpdatingId(null)
         }
