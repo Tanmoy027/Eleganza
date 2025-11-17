@@ -16,22 +16,18 @@ export default function OffersPage() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        let mounted = true
+
         async function fetchProducts() {
-            const supabase = getSupabaseBrowserClient()
-
             try {
-                // Get all active products first
-                const { data: allProducts, error: allError } = await supabase
-                    .from("products")
-                    .select("*")
-                    .eq("is_active", true)
+                const response = await fetch('/api/products')
+                const result = await response.json()
 
-                console.log("[DEBUG] All active products:", allProducts)
-                console.log("[DEBUG] All products error:", allError)
+                console.log("[DEBUG] API response:", result)
 
-                if (allProducts) {
+                if (mounted && response.ok && result.data) {
                     // Filter products that have any discount information
-                    const discountedProducts = allProducts.filter(product => {
+                    const discountedProducts = result.data.filter(product => {
                         // Check multiple conditions for discounted products
                         return (
                             product.is_on_discount === true ||
@@ -47,19 +43,32 @@ export default function OffersPage() {
                     })
 
                     console.log("[DEBUG] Filtered discounted products:", discountedProducts)
-                    setProducts(discountedProducts)
+                    if (mounted) {
+                        setProducts(discountedProducts)
+                    }
                 } else {
-                    console.log("[DEBUG] No products found")
-                    setProducts([])
+                    console.log("[DEBUG] No products found or error:", result.error)
+                    if (mounted) {
+                        setProducts([])
+                    }
                 }
             } catch (error) {
                 console.error("[DEBUG] Error fetching products:", error)
-                setProducts([])
+                if (mounted) {
+                    setProducts([])
+                }
+            } finally {
+                if (mounted) {
+                    setLoading(false)
+                }
             }
-            setLoading(false)
         }
 
         fetchProducts()
+
+        return () => {
+            mounted = false
+        }
     }, [])    // Handle price range change
     const handlePriceChange = (min, max) => {
         setMinPrice(min)

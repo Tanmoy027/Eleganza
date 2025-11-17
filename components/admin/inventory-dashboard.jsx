@@ -16,6 +16,10 @@ export default function InventoryDashboard() {
     const [updatingId, setUpdatingId] = useState(null)
     const [filters, setFilters] = useState({ search: "", restockOnly: false, productId: null })
     const [discounting, setDiscounting] = useState(false)
+    const [currentPage, setCurrentPage] = useState(1)
+    const itemsPerPage = 20
+    const [pendingChanges, setPendingChanges] = useState({})
+    const [updateStatus, setUpdateStatus] = useState({})
 
     const load = async () => {
         setLoading(true)
@@ -24,52 +28,109 @@ export default function InventoryDashboard() {
         setLoading(false)
     }
 
-    useEffect(() => { load() }, [filters.restockOnly])
+    useEffect(() => {
+        let mounted = true
+
+        const loadData = async () => {
+            if (mounted) {
+                await load()
+            }
+        }
+
+        loadData()
+
+        return () => {
+            mounted = false
+        }
+    }, [filters.restockOnly])
 
     const filtered = useMemo(() => {
         let data = rows
         if (filters.productId) data = data.filter(r => r.product_id === filters.productId)
         const s = filters.search.trim().toLowerCase()
         if (!s) return data
-        return data.filter(r =>
-            r.product_name?.toLowerCase().includes(s) ||
-            (r.color || '').toLowerCase().includes(s) ||
-            (r.size || '').toLowerCase().includes(s)
-        )
-    }, [rows, filters])    // Optimistic stock change without table reload; persist via direct variant update
-    const changeStock = async (variant_id, delta) => {
-        setUpdatingId(variant_id)
-        // Compute new qty from current state
+        return data.filter(r => r.product_name?.toLowerCase().includes(s))
+    }, [rows, filters])
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage)
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage
+        return filtered.slice(startIndex, startIndex + itemsPerPage)
+    }, [filtered, currentPage, itemsPerPage])
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [filters.search, filters.restockOnly, filters.productId])    // Change stock locally without saving
+    const changeStock = (variant_id, delta) => {
         const current = rows.find(r => r.variant_id === variant_id)
         const newQty = Math.max(0, ((current?.stock_quantity ?? 0) + delta))
 
-        // Optimistically update UI
+        // Update UI locally
         setRows(prev => prev.map(r => r.variant_id === variant_id
             ? { ...r, stock_quantity: newQty, needs_restock: newQty <= (r.restock_threshold ?? 0) }
             : r
         ))
 
+        // Track pending change
+        setPendingChanges(prev => ({
+            ...prev,
+            [variant_id]: { stock_quantity: newQty }
+        }))
+
+        // Clear any previous status
+        setUpdateStatus(prev => {
+            const newStatus = { ...prev }
+            delete newStatus[variant_id]
+            return newStatus
+        })
+    }
+
+    // Save pending changes for a specific variant
+    const saveChanges = async (variant_id) => {
+        if (!pendingChanges[variant_id]) return
+
+        setUpdatingId(variant_id)
+        setUpdateStatus(prev => ({ ...prev, [variant_id]: 'saving' }))
+
         try {
-            const { data, error } = await updateVariant(variant_id, { stock_quantity: newQty })
+            const { error } = await updateVariant(variant_id, pendingChanges[variant_id])
             if (error) {
                 console.error('Stock update error:', error)
-                // Revert optimistic update on error
-                setRows(prev => prev.map(r => r.variant_id === variant_id
-                    ? { ...r, stock_quantity: current?.stock_quantity ?? 0, needs_restock: (current?.stock_quantity ?? 0) <= (r.restock_threshold ?? 0) }
-                    : r
-                ))
+                setUpdateStatus(prev => ({ ...prev, [variant_id]: 'error' }))
+                setTimeout(() => {
+                    setUpdateStatus(prev => {
+                        const newStatus = { ...prev }
+                        delete newStatus[variant_id]
+                        return newStatus
+                    })
+                }, 3000)
             } else {
-                // Force a reload after successful update to ensure consistency
-                // This ensures the main product stock is properly updated via triggers
-                await load()
+                setUpdateStatus(prev => ({ ...prev, [variant_id]: 'success' }))
+                setPendingChanges(prev => {
+                    const newChanges = { ...prev }
+                    delete newChanges[variant_id]
+                    return newChanges
+                })
+                setTimeout(() => {
+                    setUpdateStatus(prev => {
+                        const newStatus = { ...prev }
+                        delete newStatus[variant_id]
+                        return newStatus
+                    })
+                }, 2000)
             }
         } catch (err) {
             console.error('Stock update failed:', err)
-            // Revert optimistic update on error
-            setRows(prev => prev.map(r => r.variant_id === variant_id
-                ? { ...r, stock_quantity: current?.stock_quantity ?? 0, needs_restock: (current?.stock_quantity ?? 0) <= (r.restock_threshold ?? 0) }
-                : r
-            ))
+            setUpdateStatus(prev => ({ ...prev, [variant_id]: 'error' }))
+            setTimeout(() => {
+                setUpdateStatus(prev => {
+                    const newStatus = { ...prev }
+                    delete newStatus[variant_id]
+                    return newStatus
+                })
+            }, 3000)
         } finally {
             setUpdatingId(null)
         }
@@ -110,20 +171,48 @@ export default function InventoryDashboard() {
 
     return (
         <div className="bg-white border rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-4">
-                <Input placeholder="Search by product, color, size" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
-                <Select value={filters.restockOnly ? 'yes' : 'no'} onValueChange={(v) => setFilters({ ...filters, restockOnly: v === 'yes' })}>
-                    <SelectTrigger className="w-48"><SelectValue placeholder="Restock filter" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="no">All</SelectItem>
-                        <SelectItem value="yes">Needs Restock</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Button type="button" variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
-                <Button type="button" variant="secondary" onClick={applyDiscounts} disabled={discounting}>
-                    {discounting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Percent className="w-4 h-4 mr-2" />} Apply Stale Discounts
-                </Button>
-                {filters.productId && <Button type="button" variant="ghost" onClick={clearFocus}>Clear Focus</Button>}
+            <div className="space-y-4 mb-4">
+                <div className="flex items-center gap-3">
+                    <Input placeholder="Search by product name" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
+                    <Select value={filters.restockOnly ? 'yes' : 'no'} onValueChange={(v) => setFilters({ ...filters, restockOnly: v === 'yes' })}>
+                        <SelectTrigger className="w-48"><SelectValue placeholder="Restock filter" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="no">All</SelectItem>
+                            <SelectItem value="yes">Needs Restock</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
+                    <Button type="button" variant="secondary" onClick={applyDiscounts} disabled={discounting}>
+                        {discounting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Percent className="w-4 h-4 mr-2" />} Apply Stale Discounts
+                    </Button>
+                    {filters.productId && <Button type="button" variant="ghost" onClick={clearFocus}>Clear Focus</Button>}
+                </div>
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>Showing {paginatedData.length} of {filtered.length} items</span>
+                    {totalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                            >
+                                Previous
+                            </Button>
+                            <span>Page {currentPage} of {totalPages}</span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="overflow-auto">
@@ -143,10 +232,10 @@ export default function InventoryDashboard() {
                     <TableBody>
                         {loading ? (
                             <TableRow><TableCell colSpan={8} className="text-center py-8"><Loader2 className="w-5 h-5 inline mr-2 animate-spin" /> Loading...</TableCell></TableRow>
-                        ) : filtered.length === 0 ? (
-                            <TableRow><TableCell colSpan={8} className="text-center py-8">No variants found</TableCell></TableRow>
-                        ) : filtered.map(row => (
-                            <TableRow key={row.variant_id}>
+                        ) : paginatedData.length === 0 ? (
+                            <TableRow><TableCell colSpan={8} className="text-center py-8">No products found</TableCell></TableRow>
+                        ) : paginatedData.map((row, index) => (
+                            <TableRow key={row.variant_id || `product-${row.product_id}-${index}`}>
                                 <TableCell className="flex items-center gap-2">
                                     <span>{row.product_name}</span>
                                     {row.needs_restock && (
@@ -169,21 +258,78 @@ export default function InventoryDashboard() {
                                 <TableCell>{row.stock_quantity}</TableCell>
                                 <TableCell>{row.reserved_quantity}</TableCell>
                                 <TableCell>
-                                    <Input type="number" className="w-24" defaultValue={row.restock_threshold} onBlur={(e) => setThreshold(row.variant_id, e.target.value)} />
-                                </TableCell>
-                                <TableCell>
-                                    {row.needs_restock ? (
-                                        <Badge variant="destructive">Needs Restock</Badge>
+                                    {row.variant_id ? (
+                                        <Input type="number" className="w-24" defaultValue={row.restock_threshold} onBlur={(e) => setThreshold(row.variant_id, e.target.value)} />
                                     ) : (
-                                        <Badge variant="secondary">OK</Badge>
+                                        <span className="text-gray-400 text-xs">No variants</span>
                                     )}
                                 </TableCell>
                                 <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <Button type="button" size="sm" onClick={() => changeStock(row.variant_id, -1)} disabled={updatingId === row.variant_id}><Minus className="w-4 h-4" /></Button>
-                                        <Button type="button" size="sm" onClick={() => changeStock(row.variant_id, +1)} disabled={updatingId === row.variant_id}><Plus className="w-4 h-4" /></Button>
-                                        <Button type="button" size="sm" variant="outline" onClick={() => setDiscountForProduct(row.product_id)}><Percent className="w-4 h-4" /></Button>
-                                    </div>
+                                    {row.variant_id ? (
+                                        row.needs_restock ? (
+                                            <Badge variant="destructive">Needs Restock</Badge>
+                                        ) : (
+                                            <Badge variant="secondary">OK</Badge>
+                                        )
+                                    ) : (
+                                        <Badge variant="outline">No Variants</Badge>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {row.variant_id ? (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={() => changeStock(row.variant_id, -1)}
+                                                    disabled={updatingId === row.variant_id}
+                                                >
+                                                    <Minus className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={() => changeStock(row.variant_id, +1)}
+                                                    disabled={updatingId === row.variant_id}
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                            {pendingChanges[row.variant_id] && (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="default"
+                                                    onClick={() => saveChanges(row.variant_id)}
+                                                    disabled={updatingId === row.variant_id}
+                                                    className="bg-blue-600 hover:bg-blue-700"
+                                                >
+                                                    {updatingId === row.variant_id ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        'Update'
+                                                    )}
+                                                </Button>
+                                            )}
+                                            {updateStatus[row.variant_id] === 'success' && (
+                                                <span className="text-xs text-green-600 font-medium">✓ Saved</span>
+                                            )}
+                                            {updateStatus[row.variant_id] === 'error' && (
+                                                <span className="text-xs text-red-600 font-medium">✗ Error</span>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setDiscountForProduct(row.product_id)}
+                                            >
+                                                <Percent className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400 text-xs">Create variants first</span>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}

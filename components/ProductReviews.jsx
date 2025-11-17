@@ -27,75 +27,79 @@ export function ProductReviews({ productId }) {
     const router = useRouter()
 
     useEffect(() => {
-        fetchReviews()
-        checkUser()
+        let mounted = true
+
+        const loadData = async () => {
+            if (mounted) {
+                await fetchReviews()
+                await checkUser()
+            }
+        }
+
+        loadData()
+
+        return () => {
+            mounted = false
+        }
     }, [productId])
 
     const checkUser = async () => {
-        const supabase = getSupabaseBrowserClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
+        try {
+            const supabase = getSupabaseBrowserClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            setUser(user)
 
-        if (user) {
-            setCheckingPurchase(true)
+            if (user) {
+                setCheckingPurchase(true)
 
-            // Check if user has purchased this product
-            try {
-                const { data: purchaseStatus } = await supabase.rpc("has_purchased_product", {
-                    user_uuid: user.id,
-                    product_uuid: productId
-                })
-                setHasPurchased(purchaseStatus || false)
-            } catch (error) {
-                console.error("Error checking purchase status:", error)
-                setHasPurchased(false)
+                try {
+                    // Fetch user review data via API
+                    const response = await fetch(`/api/reviews/user/${productId}`)
+                    const result = await response.json()
+
+                    if (response.ok) {
+                        setHasPurchased(result.hasPurchased || false)
+
+                        if (result.userReview) {
+                            setUserReview(result.userReview)
+                            setRating(result.userReview.rating)
+                            setReviewText(result.userReview.review_text)
+                        }
+                    } else {
+                        console.error("Error fetching user review:", result.error)
+                        setHasPurchased(false)
+                    }
+                } catch (error) {
+                    console.error("Error checking user review:", error)
+                    setHasPurchased(false)
+                }
+
+                setCheckingPurchase(false)
             }
-
-            // Check if user already has a review for this product
-            const { data: existingReview } = await supabase
-                .from("product_reviews")
-                .select("*")
-                .eq("product_id", productId)
-                .eq("user_id", user.id)
-                .single()
-
-            if (existingReview) {
-                setUserReview(existingReview)
-                setRating(existingReview.rating)
-                setReviewText(existingReview.review_text)
-            }
-
+        } catch (error) {
+            console.error("Error in checkUser:", error)
             setCheckingPurchase(false)
         }
     }
 
     const fetchReviews = async () => {
-        const supabase = getSupabaseBrowserClient()
-
         try {
-            // Fetch reviews with user profile info
-            const { data: reviewsData } = await supabase
-                .from("product_reviews")
-                .select(`
-          *,
-          profiles (
-            full_name,
-            email
-          )
-        `)
-                .eq("product_id", productId)
-                .eq("is_approved", true)
-                .order("created_at", { ascending: false })            // Fetch review statistics
-            const { data: statsData } = await supabase
-                .from("product_review_stats")
-                .select("*")
-                .eq("product_id", productId)
-                .single()
+            // Fetch reviews via API
+            const response = await fetch(`/api/reviews/${productId}`)
+            const result = await response.json()
 
-            setReviews(reviewsData || [])
-            setReviewStats(statsData)
+            if (response.ok) {
+                setReviews(result.reviews || [])
+                setReviewStats(result.stats)
+            } else {
+                console.error("Error fetching reviews:", result.error)
+                setReviews([])
+                setReviewStats(null)
+            }
         } catch (error) {
             console.error("Error fetching reviews:", error)
+            setReviews([])
+            setReviewStats(null)
         } finally {
             setLoading(false)
         }

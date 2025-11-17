@@ -17,22 +17,38 @@ export default function ClothingPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchProducts() {
-      const supabase = getSupabaseBrowserClient()
-      const { data } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
+    let mounted = true
 
-      if (data) {
-        console.log("[v0] Clothing page - Fetched products:", data)
-        setProducts(data)
+    async function fetchProducts() {
+      try {
+        const response = await fetch('/api/products')
+        const result = await response.json()
+
+        if (response.ok && mounted) {
+          setProducts(result.data || [])
+        } else if (mounted) {
+          if (result.error) {
+            console.error("Error fetching products:", result.error)
+          }
+          setProducts([])
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error)
+        if (mounted) {
+          setProducts([])
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
-      setLoading(false)
     }
 
     fetchProducts()
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
   // Clothing types based on category (matching the product form structure)

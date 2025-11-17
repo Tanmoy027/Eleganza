@@ -2,11 +2,14 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { ProductDetails } from "@/components/products/product-details"
 import { notFound } from "next/navigation"
 
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
+
 export default async function ProductPage({ params }) {
     const { id } = await params
     const supabase = await getSupabaseServerClient()
 
-    // Get the main product
+    // Get the main product with fresh data
     const { data: product, error } = await supabase
         .from("products")
         .select("*")
@@ -16,7 +19,9 @@ export default async function ProductPage({ params }) {
 
     if (error || !product) {
         notFound()
-    }    // Get similar products from the same category
+    }
+
+    // Get similar products from the same category
     const { data: similarProducts } = await supabase
         .from("products")
         .select("*")

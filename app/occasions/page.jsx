@@ -18,22 +18,39 @@ export default function OccasionsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchProducts() {
-      const supabase = getSupabaseBrowserClient()
-      const { data } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
+    let mounted = true
 
-      if (data) {
-        console.log("[v0] Fetched products:", data)
-        setProducts(data)
+    async function fetchProducts() {
+      try {
+        const response = await fetch('/api/products')
+        const result = await response.json()
+
+        if (mounted && response.ok) {
+          console.log("[v0] Fetched products:", result.data)
+          setProducts(result.data || [])
+        } else {
+          console.error("Error fetching products:", result.error)
+          if (mounted) {
+            setProducts([])
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error)
+        if (mounted) {
+          setProducts([])
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
-      setLoading(false)
     }
 
     fetchProducts()
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
   // Clothing types based on category (matching the product form structure)

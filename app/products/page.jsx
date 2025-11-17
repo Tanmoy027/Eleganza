@@ -28,31 +28,44 @@ function ProductsPageContent() {
   const season = searchParams.get('season')
 
   useEffect(() => {
+    let mounted = true
+
     async function fetchProducts() {
-      const supabase = getSupabaseBrowserClient()
-      let query = supabase.from("products").select("*").eq("is_active", true)
+      try {
+        const params = new URLSearchParams()
+        if (category) params.append('category', category)
+        if (clothing_type) params.append('clothing_type', clothing_type)
+        if (occasion) params.append('occasion', occasion)
+        if (season) params.append('season', season)
 
-      if (category) {
-        query = query.eq("category", category)
-      }
-      if (clothing_type) {
-        query = query.eq("clothing_type", clothing_type)
-      }
-      if (occasion) {
-        query = query.eq("occasion", occasion)
-      }
-      if (season) {
-        query = query.eq("season", season)
-      }
+        const response = await fetch(`/api/products?${params.toString()}`)
+        const result = await response.json()
 
-      const { data } = await query.order("created_at", { ascending: false })
-      if (data) {
-        setProducts(data)
+        if (mounted && response.ok) {
+          setProducts(result.data || [])
+        } else {
+          console.error("Error fetching products:", result.error)
+          if (mounted) {
+            setProducts([])
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error)
+        if (mounted) {
+          setProducts([])
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
-      setLoading(false)
     }
 
     fetchProducts()
+
+    return () => {
+      mounted = false
+    }
   }, [category, clothing_type, occasion, season])
 
   // Handle price range change

@@ -15,52 +15,77 @@ export default function AuthNavbar() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        let mounted = true
+        let subscription = null
+
         const fetchUser = async () => {
-            const supabase = getSupabaseBrowserClient()
+            try {
+                const supabase = getSupabaseBrowserClient()
 
-            // Get initial session
-            const { data: { session } } = await supabase.auth.getSession()
+                // Get initial session
+                const { data: { session } } = await supabase.auth.getSession()
 
-            if (session?.user) {
-                setUser(session.user)
+                if (mounted && session?.user) {
+                    setUser(session.user)
 
-                // Fetch user profile
-                const { data: profileData } = await supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", session.user.id)
-                    .single()
+                    // Fetch user profile
+                    const { data: profileData } = await supabase
+                        .from("profiles")
+                        .select("*")
+                        .eq("id", session.user.id)
+                        .single()
 
-                setProfile(profileData)
-            }
-
-            setLoading(false)
-
-            // Listen for auth changes
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(
-                async (event, session) => {
-                    if (session?.user) {
-                        setUser(session.user)
-
-                        // Fetch updated profile
-                        const { data: profileData } = await supabase
-                            .from("profiles")
-                            .select("*")
-                            .eq("id", session.user.id)
-                            .single()
-
+                    if (mounted) {
                         setProfile(profileData)
-                    } else {
-                        setUser(null)
-                        setProfile(null)
                     }
                 }
-            )
 
-            return () => subscription.unsubscribe()
+                if (mounted) {
+                    setLoading(false)
+                }
+
+                // Listen for auth changes
+                const { data: authListener } = supabase.auth.onAuthStateChange(
+                    async (event, session) => {
+                        if (!mounted) return
+
+                        if (session?.user) {
+                            setUser(session.user)
+
+                            // Fetch updated profile
+                            const { data: profileData } = await supabase
+                                .from("profiles")
+                                .select("*")
+                                .eq("id", session.user.id)
+                                .single()
+
+                            if (mounted) {
+                                setProfile(profileData)
+                            }
+                        } else {
+                            setUser(null)
+                            setProfile(null)
+                        }
+                    }
+                )
+
+                subscription = authListener.subscription
+            } catch (error) {
+                console.error("Error fetching user:", error)
+                if (mounted) {
+                    setLoading(false)
+                }
+            }
         }
 
         fetchUser()
+
+        return () => {
+            mounted = false
+            if (subscription) {
+                subscription.unsubscribe()
+            }
+        }
     }, [])
 
     const toggleMobileMenu = () => {
