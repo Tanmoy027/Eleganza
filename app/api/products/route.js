@@ -58,7 +58,14 @@ export async function GET(request) {
             })
         )
 
-        return NextResponse.json({ data: productsWithStock, error: null })
+        const response = NextResponse.json({ data: productsWithStock, error: null })
+
+        // Add cache control headers to prevent stale data
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+        response.headers.set('Pragma', 'no-cache')
+        response.headers.set('Expires', '0')
+
+        return response
     } catch (error) {
         console.error('Exception fetching products:', error)
         return NextResponse.json({ data: [], error: error.message }, { status: 500 })

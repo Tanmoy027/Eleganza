@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Truck, RotateCcw, Headphones, Shield, Tag } from "lucide-react"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+
 import { getProductMainImage, handleImageError } from "@/lib/image-utils"
 import PriceRangeFilter from "@/components/PriceRangeFilter"
 
@@ -14,16 +14,21 @@ export default function OffersPage() {
     const [maxPrice, setMaxPrice] = useState(null)
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
+    const [currentPage, setCurrentPage] = useState(1)
+    const productsPerPage = 20
 
     useEffect(() => {
         let mounted = true
 
         async function fetchProducts() {
             try {
-                const response = await fetch('/api/products')
+                const response = await fetch('/api/products', {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                })
                 const result = await response.json()
-
-                console.log("[DEBUG] API response:", result)
 
                 if (mounted && response.ok && result.data) {
                     // Filter products that have any discount information
@@ -42,18 +47,16 @@ export default function OffersPage() {
                         return bDiscount - aDiscount
                     })
 
-                    console.log("[DEBUG] Filtered discounted products:", discountedProducts)
                     if (mounted) {
                         setProducts(discountedProducts)
                     }
                 } else {
-                    console.log("[DEBUG] No products found or error:", result.error)
                     if (mounted) {
                         setProducts([])
                     }
                 }
             } catch (error) {
-                console.error("[DEBUG] Error fetching products:", error)
+                console.error("Error fetching products:", error)
                 if (mounted) {
                     setProducts([])
                 }
@@ -73,6 +76,7 @@ export default function OffersPage() {
     const handlePriceChange = (min, max) => {
         setMinPrice(min)
         setMaxPrice(max)
+        setCurrentPage(1)
     }
 
     // Filter products by category and price range
@@ -88,6 +92,12 @@ export default function OffersPage() {
 
         return categoryMatch && priceMatch
     })
+
+    // Pagination
+    const totalPages = Math.ceil(filteredProducts.length / productsPerPage)
+    const startIndex = (currentPage - 1) * productsPerPage
+    const endIndex = startIndex + productsPerPage
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex)
 
     if (loading) {
         return (
@@ -122,7 +132,7 @@ export default function OffersPage() {
                 {/* Category Filter Buttons */}
                 <div className="flex flex-wrap justify-center gap-2 mb-6 md:mb-8">
                     <button
-                        onClick={() => setSelectedCategory("all")}
+                        onClick={() => { setSelectedCategory("all"); setCurrentPage(1); }}
                         className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "all"
                             ? "bg-red-500 text-white"
                             : "border border-gray-300 hover:bg-gray-50"
@@ -131,7 +141,7 @@ export default function OffersPage() {
                         ALL OFFERS
                     </button>
                     <button
-                        onClick={() => setSelectedCategory("women")}
+                        onClick={() => { setSelectedCategory("women"); setCurrentPage(1); }}
                         className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "women"
                             ? "bg-red-500 text-white"
                             : "border border-gray-300 hover:bg-gray-50"
@@ -140,7 +150,7 @@ export default function OffersPage() {
                         WOMEN
                     </button>
                     <button
-                        onClick={() => setSelectedCategory("men")}
+                        onClick={() => { setSelectedCategory("men"); setCurrentPage(1); }}
                         className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "men"
                             ? "bg-red-500 text-white"
                             : "border border-gray-300 hover:bg-gray-50"
@@ -149,7 +159,7 @@ export default function OffersPage() {
                         MEN
                     </button>
                     <button
-                        onClick={() => setSelectedCategory("child")}
+                        onClick={() => { setSelectedCategory("child"); setCurrentPage(1); }}
                         className={`px-3 md:px-4 py-2 text-xs font-medium uppercase ${selectedCategory === "child"
                             ? "bg-red-500 text-white"
                             : "border border-gray-300 hover:bg-gray-50"
@@ -182,79 +192,144 @@ export default function OffersPage() {
 
                 {/* Product Grid */}
                 {filteredProducts.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 mb-12">                        {filteredProducts.map((product) => {
-                        // Check for discount in multiple ways
-                        const hasNewDiscount = product.is_on_discount && product.discount_price && product.discount_percentage
-                        const hasOldDiscount = product.compare_at_price && product.compare_at_price > product.price
-                        const hasAnyDiscount = hasNewDiscount || hasOldDiscount
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 mb-8">                        {paginatedProducts.map((product) => {
+                            // Check for discount in multiple ways
+                            const hasNewDiscount = product.is_on_discount && product.discount_price && product.discount_percentage
+                            const hasOldDiscount = product.compare_at_price && product.compare_at_price > product.price
+                            const hasAnyDiscount = hasNewDiscount || hasOldDiscount
 
-                        const mainImage = getProductMainImage(product)
+                            const mainImage = getProductMainImage(product)
 
-                        // Calculate savings and discount percentage
-                        let savings = 0
-                        let discountPercentage = 0
-                        let originalPrice = product.price
-                        let discountPrice = product.price
+                            // Calculate savings and discount percentage
+                            let savings = 0
+                            let discountPercentage = 0
+                            let originalPrice = product.price
+                            let discountPrice = product.price
 
-                        if (hasNewDiscount) {
-                            savings = (product.price - product.discount_price).toFixed(2)
-                            discountPercentage = product.discount_percentage
-                            originalPrice = product.price
-                            discountPrice = product.discount_price
-                        } else if (hasOldDiscount) {
-                            savings = (product.compare_at_price - product.price).toFixed(2)
-                            discountPercentage = Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100)
-                            originalPrice = product.compare_at_price
-                            discountPrice = product.price
-                        }
+                            if (hasNewDiscount) {
+                                savings = (product.price - product.discount_price).toFixed(2)
+                                discountPercentage = product.discount_percentage
+                                originalPrice = product.price
+                                discountPrice = product.discount_price
+                            } else if (hasOldDiscount) {
+                                savings = (product.compare_at_price - product.price).toFixed(2)
+                                discountPercentage = Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100)
+                                originalPrice = product.compare_at_price
+                                discountPrice = product.price
+                            }
 
-                        return (
-                            <div key={product.id} className="group">
-                                <Link href={`/products/${product.id}`}>
-                                    <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden cursor-pointer relative">
-                                        <Image
-                                            src={mainImage || "/placeholder.svg"}
-                                            alt={product.name}
-                                            fill
-                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                            onError={handleImageError}
-                                        />                                            {hasAnyDiscount && (
-                                            <>
-                                                <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 text-xs font-bold rounded">
-                                                    {discountPercentage}% OFF
-                                                </div>                                                <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 text-xs font-bold rounded">
-                                                    SAVE ৳{savings}
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </Link>
-                                <div className="text-center">
-                                    <div className="text-xs text-gray-500 mb-1 uppercase">
-                                        {product.category}
-                                    </div>
+                            return (
+                                <div key={product.id} className="group">
                                     <Link href={`/products/${product.id}`}>
-                                        <h3 className="text-xs md:text-sm font-medium mb-2 hover:text-gray-600 cursor-pointer line-clamp-2">
-                                            {product.name}
-                                        </h3>
-                                    </Link>                                    <div className="space-y-1">
-                                        {hasAnyDiscount ? (
-                                            <>                                                <div className="flex items-center justify-center space-x-2">
-                                                <p className="text-sm md:text-base text-red-600 font-bold">৳{discountPrice}</p>
-                                                <p className="text-xs text-gray-400 line-through">৳{originalPrice}</p>
-                                            </div>
-                                                <p className="text-xs text-green-600 font-medium">
-                                                    You save ৳{savings} ({discountPercentage}% off)
-                                                </p>
-                                            </>) : (
-                                            <p className="text-xs md:text-sm text-gray-900 font-medium">৳{product.price}</p>
-                                        )}
+                                        <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden cursor-pointer relative">
+                                            <Image
+                                                src={mainImage || "/placeholder.svg"}
+                                                alt={product.name}
+                                                fill
+                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                                onError={handleImageError}
+                                            />                                            {hasAnyDiscount && (
+                                                <>
+                                                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 text-xs font-bold rounded">
+                                                        {discountPercentage}% OFF
+                                                    </div>                                                <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 text-xs font-bold rounded">
+                                                        SAVE ৳{savings}
+                                                    </div>
+                                                </>
+                                            )}
+                                            {product.stock_quantity === 0 && (
+                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                    <span className="bg-white text-black px-3 py-1 text-sm font-medium">Out of Stock</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Link>
+                                    <div className="text-center">
+                                        <div className="text-xs text-gray-500 mb-1 uppercase">
+                                            {product.category}
+                                        </div>
+                                        <Link href={`/products/${product.id}`}>
+                                            <h3 className="text-xs md:text-sm font-medium mb-2 hover:text-gray-600 cursor-pointer line-clamp-2">
+                                                {product.name}
+                                            </h3>
+                                        </Link>                                    <div className="space-y-1">
+                                            {hasAnyDiscount ? (
+                                                <>                                                <div className="flex items-center justify-center space-x-2">
+                                                    <p className="text-sm md:text-base text-red-600 font-bold">৳{discountPrice}</p>
+                                                    <p className="text-xs text-gray-400 line-through">৳{originalPrice}</p>
+                                                </div>
+                                                    <p className="text-xs text-green-600 font-medium">
+                                                        You save ৳{savings} ({discountPercentage}% off)
+                                                    </p>
+                                                </>) : (
+                                                <p className="text-xs md:text-sm text-gray-900 font-medium">৳{product.price}</p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+                            )
+                        })}
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-2 mb-12">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className={`px-4 py-2 text-sm font-medium ${currentPage === 1
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Previous
+                                </button>
+
+                                <div className="flex gap-1">
+                                    {[...Array(totalPages)].map((_, index) => {
+                                        const pageNum = index + 1
+                                        if (
+                                            pageNum === 1 ||
+                                            pageNum === totalPages ||
+                                            (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                                        ) {
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => setCurrentPage(pageNum)}
+                                                    className={`px-3 py-2 text-sm font-medium ${currentPage === pageNum
+                                                        ? 'bg-black text-white'
+                                                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            )
+                                        } else if (
+                                            pageNum === currentPage - 2 ||
+                                            pageNum === currentPage + 2
+                                        ) {
+                                            return <span key={pageNum} className="px-2 py-2 text-gray-400">...</span>
+                                        }
+                                        return null
+                                    })}
+                                </div>
+
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className={`px-4 py-2 text-sm font-medium ${currentPage === totalPages
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Next
+                                </button>
                             </div>
-                        )
-                    })}
-                    </div>) : (
+                        )}
+                    </>
+                ) : (
                     <div className="text-center py-12">
                         <Tag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-500 text-lg mb-2">No offers available right now</p>

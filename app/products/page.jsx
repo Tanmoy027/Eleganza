@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+
 import { ProductCard } from "@/components/products/product-card"
 import PriceRangeFilter from "@/components/PriceRangeFilter"
 
@@ -20,6 +20,8 @@ function ProductsPageContent() {
   const [loading, setLoading] = useState(true)
   const [minPrice, setMinPrice] = useState(null)
   const [maxPrice, setMaxPrice] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const productsPerPage = 20
 
   // Get URL parameters
   const category = searchParams.get('category')
@@ -38,7 +40,12 @@ function ProductsPageContent() {
         if (occasion) params.append('occasion', occasion)
         if (season) params.append('season', season)
 
-        const response = await fetch(`/api/products?${params.toString()}`)
+        const response = await fetch(`/api/products?${params.toString()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
         const result = await response.json()
 
         if (mounted && response.ok) {
@@ -72,6 +79,7 @@ function ProductsPageContent() {
   const handlePriceChange = (min, max) => {
     setMinPrice(min)
     setMaxPrice(max)
+    setCurrentPage(1)
   }
 
   // Filter products by price range
@@ -82,6 +90,12 @@ function ProductsPageContent() {
       (maxPrice === null || price <= maxPrice)
     return priceMatch
   })
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage)
+  const startIndex = (currentPage - 1) * productsPerPage
+  const endIndex = startIndex + productsPerPage
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex)
 
   // Determine the page title and description based on filters
   let pageTitle = "Products"
@@ -154,14 +168,71 @@ function ProductsPageContent() {
 
       {/* Products Section */}
       {filteredProducts && filteredProducts.length > 0 ? (
-        <div className="flex-1 flex justify-center">
-          <div className="container mx-auto px-4 pb-12 max-w-7xl">
+        <div className="flex-1 flex flex-col justify-center">
+          <div className="container mx-auto px-4 pb-8 max-w-7xl">
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center">
-              {filteredProducts.map((product) => (
+              {paginatedProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mb-12">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 text-sm font-medium ${currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                Previous
+              </button>
+
+              <div className="flex gap-1">
+                {[...Array(totalPages)].map((_, index) => {
+                  const pageNum = index + 1
+                  if (
+                    pageNum === 1 ||
+                    pageNum === totalPages ||
+                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-2 text-sm font-medium ${currentPage === pageNum
+                          ? 'bg-black text-white'
+                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  } else if (
+                    pageNum === currentPage - 2 ||
+                    pageNum === currentPage + 2
+                  ) {
+                    return <span key={pageNum} className="px-2 py-2 text-gray-400">...</span>
+                  }
+                  return null
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 text-sm font-medium ${currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center container mx-auto px-4">

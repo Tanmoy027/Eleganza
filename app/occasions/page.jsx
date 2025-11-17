@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Truck, RotateCcw, Headphones, Shield } from "lucide-react"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+
 import { getProductMainImage, handleImageError } from "@/lib/image-utils"
 import PriceRangeFilter from "@/components/PriceRangeFilter"
 
@@ -16,17 +16,23 @@ export default function OccasionsPage() {
   const [maxPrice, setMaxPrice] = useState(null)
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const productsPerPage = 20
 
   useEffect(() => {
     let mounted = true
 
     async function fetchProducts() {
       try {
-        const response = await fetch('/api/products')
+        const response = await fetch('/api/products', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
         const result = await response.json()
 
         if (mounted && response.ok) {
-          console.log("[v0] Fetched products:", result.data)
           setProducts(result.data || [])
         } else {
           console.error("Error fetching products:", result.error)
@@ -117,18 +123,21 @@ export default function OccasionsPage() {
     setSelectedOccasion(occasion)
     setSelectedCategory("all")
     setSelectedClothingType("all")
+    setCurrentPage(1)
   }
 
   // Handle category change - reset clothing type when category changes
   const handleCategoryChange = (category) => {
     setSelectedCategory(category)
     setSelectedClothingType("all")
+    setCurrentPage(1)
   }
 
   // Handle price range change
   const handlePriceChange = (min, max) => {
     setMinPrice(min)
     setMaxPrice(max)
+    setCurrentPage(1)
   }
 
   // Filter products based on occasion, category, clothing type, and price range
@@ -152,6 +161,12 @@ export default function OccasionsPage() {
 
     return occasionMatch && categoryMatch && clothingTypeMatch && priceMatch
   })
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage)
+  const startIndex = (currentPage - 1) * productsPerPage
+  const endIndex = startIndex + productsPerPage
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex)
 
   if (loading) {
     return (
@@ -345,55 +360,119 @@ export default function OccasionsPage() {
 
         {/* Product Grid */}
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 mb-12">
-            {filteredProducts.map((product) => {
-              const hasDiscount = product.compare_at_price && product.compare_at_price > product.price
-              const mainImage = getProductMainImage(product)
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 mb-8">
+              {paginatedProducts.map((product) => {
+                const hasDiscount = product.compare_at_price && product.compare_at_price > product.price
+                const mainImage = getProductMainImage(product)
 
-              return (
-                <div key={product.id} className="group">
-                  <Link href={`/products/${product.id}`}>
-                    <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden cursor-pointer relative">
-                      <Image
-                        src={mainImage || "/placeholder.svg"}
-                        alt={product.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={handleImageError}
-                      />
-                      {hasDiscount && (
-                        <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 text-xs font-medium">
-                          SALE
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                  <div className="text-center">
-                    <div className="text-xs text-gray-500 mb-1 uppercase">
-                      {product.occasion && <span>{product.occasion}</span>}
-                      {product.category && <span className="block">{product.category}</span>}
-                      {product.clothing_type && selectedCategory !== "all" && (
-                        <span className="block text-gray-400 font-light">
-                          {clothingTypes[product.category]?.find(t => t.value === product.clothing_type)?.label || product.clothing_type}
-                        </span>
-                      )}
-                    </div>
+                return (
+                  <div key={product.id} className="group">
                     <Link href={`/products/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-medium mb-1 hover:text-gray-600 cursor-pointer line-clamp-2">
-                        {product.name}
-                      </h3>
+                      <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden cursor-pointer relative">
+                        <Image
+                          src={mainImage || "/placeholder.svg"}
+                          alt={product.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={handleImageError}
+                        />
+                        {hasDiscount && (
+                          <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 text-xs font-medium">
+                            SALE
+                          </div>
+                        )}
+                        {product.stock_quantity === 0 && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <span className="bg-white text-black px-3 py-1 text-sm font-medium">Out of Stock</span>
+                          </div>
+                        )}
+                      </div>
                     </Link>
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <p className="text-xs md:text-sm text-gray-900 font-medium">৳{product.price}</p>
-                      {product.compare_at_price && (
-                        <p className="text-xs text-gray-400 line-through">৳{product.compare_at_price}</p>
-                      )}
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500 mb-1 uppercase">
+                        {product.occasion && <span>{product.occasion}</span>}
+                        {product.category && <span className="block">{product.category}</span>}
+                        {product.clothing_type && selectedCategory !== "all" && (
+                          <span className="block text-gray-400 font-light">
+                            {clothingTypes[product.category]?.find(t => t.value === product.clothing_type)?.label || product.clothing_type}
+                          </span>
+                        )}
+                      </div>
+                      <Link href={`/products/${product.id}`}>
+                        <h3 className="text-xs md:text-sm font-medium mb-1 hover:text-gray-600 cursor-pointer line-clamp-2">
+                          {product.name}
+                        </h3>
+                      </Link>
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <p className="text-xs md:text-sm text-gray-900 font-medium">৳{product.price}</p>
+                        {product.compare_at_price && (
+                          <p className="text-xs text-gray-400 line-through">৳{product.compare_at_price}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
+                )
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mb-12">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-4 py-2 text-sm font-medium ${currentPage === 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                >
+                  Previous
+                </button>
+
+                <div className="flex gap-1">
+                  {[...Array(totalPages)].map((_, index) => {
+                    const pageNum = index + 1
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-2 text-sm font-medium ${currentPage === pageNum
+                            ? 'bg-black text-white'
+                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    } else if (
+                      pageNum === currentPage - 2 ||
+                      pageNum === currentPage + 2
+                    ) {
+                      return <span key={pageNum} className="px-2 py-2 text-gray-400">...</span>
+                    }
+                    return null
+                  })}
                 </div>
-              )
-            })}
-          </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-4 py-2 text-sm font-medium ${currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-500">No products available for this occasion.</p>
