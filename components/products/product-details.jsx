@@ -104,6 +104,13 @@ export function ProductDetails({ product, similarProducts = [] }) {
 
   const variantInStock = (color, size) => variantInStockInternal(color, size, availability)
 
+  // Get stock quantity for a specific variant
+  const getVariantStock = (color, size) => {
+    const key = `${(color || '').toLowerCase()}__${(size || '').toUpperCase()}`
+    const v = availability.byKey.get(key)
+    return v ? (v.stock_quantity || 0) : 0
+  }
+
   const overallInStock = () => {
     if (variants.length > 0) {
       return variants.some(v => (v.stock_quantity || 0) > 0)
@@ -333,17 +340,35 @@ export function ProductDetails({ product, similarProducts = [] }) {
                     available = (product.stock_quantity || 0) > 0
                   }
 
+                  // Get stock for this size (sum across all colors if no color selected, or specific color if selected)
+                  let stockCount = 0
+                  if (selectedColor) {
+                    stockCount = getVariantStock(selectedColor, size)
+                  } else if (variants.length > 0) {
+                    const colors = uniqueColors.length > 0 ? uniqueColors : (product.colors || [])
+                    stockCount = colors.reduce((sum, c) => sum + getVariantStock(c, size), 0)
+                  } else {
+                    stockCount = product.stock_quantity || 0
+                  }
+
                   return (
                     <button
                       key={size}
                       onClick={() => onSelectSize(size)}
                       disabled={!available}
-                      className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all ${selectedSize === size
+                      className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all relative ${selectedSize === size
                         ? "bg-black text-white border-black"
                         : available ? "bg-white text-gray-700 border-gray-300 hover:border-gray-400" : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                         }`}
                     >
-                      {size}
+                      <div className="flex flex-col items-center">
+                        <span>{size}</span>
+                        {stockCount > 0 && (
+                          <span className={`text-xs ${selectedSize === size ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {stockCount} left
+                          </span>
+                        )}
+                      </div>
                     </button>
                   )
                 })}
@@ -372,28 +397,66 @@ export function ProductDetails({ product, similarProducts = [] }) {
                       available = (product.stock_quantity || 0) > 0
                     }
 
+                    // Get stock for this color (sum across all sizes if no size selected, or specific size if selected)
+                    let stockCount = 0
+                    if (selectedSize) {
+                      stockCount = getVariantStock(color, selectedSize)
+                    } else if (variants.length > 0) {
+                      const sizes = uniqueSizes.length > 0 ? uniqueSizes : (product.sizes || ['S', 'M', 'L', 'XL', 'XXL'])
+                      stockCount = sizes.reduce((sum, s) => sum + getVariantStock(color, s), 0)
+                    } else {
+                      stockCount = product.stock_quantity || 0
+                    }
+
                     return (
                       <button
                         key={color}
                         onClick={() => onSelectColor(color)}
                         disabled={!available}
-                        className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all capitalize ${selectedColor === color
+                        className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all capitalize relative ${selectedColor === color
                           ? "bg-black text-white border-black"
                           : available ? "bg-white text-gray-700 border-gray-300 hover:border-gray-400" : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                           }`}
                       >
-                        {color}
+                        <div className="flex flex-col items-center">
+                          <span>{color}</span>
+                          {stockCount > 0 && (
+                            <span className={`text-xs ${selectedColor === color ? 'text-gray-300' : 'text-gray-500'}`}>
+                              {stockCount} left
+                            </span>
+                          )}
+                        </div>
                       </button>
                     )
                   })}
                 </div>
                 {selectedColor && selectedSize && (
-                  <div className="text-sm">
+                  <div className="text-sm bg-gray-50 p-3 rounded-lg border">
                     {variantInStock(selectedColor, selectedSize) ? (
-                      <span className="text-green-600">Selected color/size is available</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-green-600 font-medium">✓ Available</span>
+                        <span className="text-gray-600">
+                          <strong>{getVariantStock(selectedColor, selectedSize)}</strong> in stock
+                        </span>
+                      </div>
                     ) : (
-                      <span className="text-red-600">Selected color is not available in this size</span>
+                      <span className="text-red-600 font-medium">✗ Not available in this combination</span>
                     )}
+                  </div>
+                )}
+                {(selectedColor || selectedSize) && !(selectedColor && selectedSize) && (
+                  <div className="text-sm bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-600 font-medium">Current Selection</span>
+                      <span className="text-gray-600">
+                        {selectedColor && !selectedSize && (
+                          <span><strong>{uniqueSizes.length > 0 ? uniqueSizes.reduce((sum, s) => sum + getVariantStock(selectedColor, s), 0) : product.stock_quantity || 0}</strong> total for {selectedColor}</span>
+                        )}
+                        {selectedSize && !selectedColor && (
+                          <span><strong>{uniqueColors.length > 0 ? uniqueColors.reduce((sum, c) => sum + getVariantStock(c, selectedSize), 0) : product.stock_quantity || 0}</strong> total for {selectedSize}</span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

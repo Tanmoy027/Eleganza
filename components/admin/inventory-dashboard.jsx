@@ -76,7 +76,56 @@ export default function InventoryDashboard() {
         // Track pending change
         setPendingChanges(prev => ({
             ...prev,
-            [variant_id]: { stock_quantity: newQty }
+            [variant_id]: { ...prev[variant_id], stock_quantity: newQty }
+        }))
+
+        // Clear any previous status
+        setUpdateStatus(prev => {
+            const newStatus = { ...prev }
+            delete newStatus[variant_id]
+            return newStatus
+        })
+    }
+
+    // Handle manual stock input
+    const handleStockInput = (variant_id, value) => {
+        const newQty = Math.max(0, parseInt(value || '0', 10))
+        const current = rows.find(r => r.variant_id === variant_id)
+
+        // Update UI locally
+        setRows(prev => prev.map(r => r.variant_id === variant_id
+            ? { ...r, stock_quantity: newQty, needs_restock: newQty <= (r.restock_threshold ?? 0) }
+            : r
+        ))
+
+        // Track pending change
+        setPendingChanges(prev => ({
+            ...prev,
+            [variant_id]: { ...prev[variant_id], stock_quantity: newQty }
+        }))
+
+        // Clear any previous status
+        setUpdateStatus(prev => {
+            const newStatus = { ...prev }
+            delete newStatus[variant_id]
+            return newStatus
+        })
+    }
+
+    // Handle manual reserved quantity input
+    const handleReservedInput = (variant_id, value) => {
+        const newQty = Math.max(0, parseInt(value || '0', 10))
+
+        // Update UI locally
+        setRows(prev => prev.map(r => r.variant_id === variant_id
+            ? { ...r, reserved_quantity: newQty }
+            : r
+        ))
+
+        // Track pending change
+        setPendingChanges(prev => ({
+            ...prev,
+            [variant_id]: { ...prev[variant_id], reserved_quantity: newQty }
         }))
 
         // Clear any previous status
@@ -255,8 +304,56 @@ export default function InventoryDashboard() {
                                 </TableCell>
                                 <TableCell className="capitalize">{row.color || '-'}</TableCell>
                                 <TableCell>{row.size || '-'}</TableCell>
-                                <TableCell>{row.stock_quantity}</TableCell>
-                                <TableCell>{row.reserved_quantity}</TableCell>
+                                <TableCell>
+                                    {row.variant_id ? (
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="number"
+                                                className={`w-20 ${pendingChanges[row.variant_id]?.stock_quantity !== undefined ? 'border-blue-500 bg-blue-50' : ''}`}
+                                                value={row.stock_quantity || 0}
+                                                onChange={(e) => handleStockInput(row.variant_id, e.target.value)}
+                                                min="0"
+                                            />
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => changeStock(row.variant_id, -1)}
+                                                    disabled={updatingId === row.variant_id}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Minus className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => changeStock(row.variant_id, +1)}
+                                                    disabled={updatingId === row.variant_id}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400 text-xs">No variants</span>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {row.variant_id ? (
+                                        <Input
+                                            type="number"
+                                            className={`w-20 ${pendingChanges[row.variant_id]?.reserved_quantity !== undefined ? 'border-blue-500 bg-blue-50' : ''}`}
+                                            value={row.reserved_quantity || 0}
+                                            onChange={(e) => handleReservedInput(row.variant_id, e.target.value)}
+                                            min="0"
+                                        />
+                                    ) : (
+                                        <span className="text-gray-400 text-xs">No variants</span>
+                                    )}
+                                </TableCell>
                                 <TableCell>
                                     {row.variant_id ? (
                                         <Input type="number" className="w-24" defaultValue={row.restock_threshold} onBlur={(e) => setThreshold(row.variant_id, e.target.value)} />
@@ -278,24 +375,6 @@ export default function InventoryDashboard() {
                                 <TableCell>
                                     {row.variant_id ? (
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <div className="flex items-center gap-1">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => changeStock(row.variant_id, -1)}
-                                                    disabled={updatingId === row.variant_id}
-                                                >
-                                                    <Minus className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => changeStock(row.variant_id, +1)}
-                                                    disabled={updatingId === row.variant_id}
-                                                >
-                                                    <Plus className="w-4 h-4" />
-                                                </Button>
-                                            </div>
                                             {pendingChanges[row.variant_id] && (
                                                 <Button
                                                     type="button"
