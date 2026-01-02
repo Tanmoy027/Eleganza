@@ -20,11 +20,27 @@ export default function InventoryDashboard() {
     const itemsPerPage = 20
     const [pendingChanges, setPendingChanges] = useState({})
     const [updateStatus, setUpdateStatus] = useState({})
+    const [originalStockValues, setOriginalStockValues] = useState({})
+    const [additionalStock, setAdditionalStock] = useState({})
 
     const load = async () => {
         setLoading(true)
         const { data } = await getInventoryStatus({ onlyNeedsRestock: filters.restockOnly })
         setRows(data || [])
+
+        // Store original stock values when data loads
+        const originalValues = {}
+        if (data) {
+            data.forEach(row => {
+                if (row.variant_id) {
+                    originalValues[row.variant_id] = {
+                        stock_quantity: row.stock_quantity || 0,
+                        reserved_quantity: row.reserved_quantity || 0
+                    }
+                }
+            })
+        }
+        setOriginalStockValues(originalValues)
         setLoading(false)
     }
 
@@ -65,18 +81,39 @@ export default function InventoryDashboard() {
     }, [filters.search, filters.restockOnly, filters.productId])    // Change stock locally without saving
     const changeStock = (variant_id, delta) => {
         const current = rows.find(r => r.variant_id === variant_id)
-        const newQty = Math.max(0, ((current?.stock_quantity ?? 0) + delta))
+        const originalStock = originalStockValues[variant_id]?.stock_quantity ?? current?.stock_quantity ?? 0
+        
+        // Store original value if not already stored
+        if (!originalStockValues[variant_id]) {
+            setOriginalStockValues(prev => ({
+                ...prev,
+                [variant_id]: {
+                    stock_quantity: current?.stock_quantity || 0,
+                    reserved_quantity: current?.reserved_quantity || 0
+                }
+            }))
+        }
+
+        // Update additional stock
+        const currentAdditional = additionalStock[variant_id] || 0
+        const newAdditional = Math.max(-originalStock, currentAdditional + delta)
+        const totalStock = originalStock + newAdditional
+        
+        setAdditionalStock(prev => ({
+            ...prev,
+            [variant_id]: newAdditional
+        }))
 
         // Update UI locally
         setRows(prev => prev.map(r => r.variant_id === variant_id
-            ? { ...r, stock_quantity: newQty, needs_restock: newQty <= (r.restock_threshold ?? 0) }
+            ? { ...r, stock_quantity: totalStock, needs_restock: totalStock <= (r.restock_threshold ?? 0) }
             : r
         ))
 
         // Track pending change
         setPendingChanges(prev => ({
             ...prev,
-            [variant_id]: { ...prev[variant_id], stock_quantity: newQty }
+            [variant_id]: { ...prev[variant_id], stock_quantity: totalStock }
         }))
 
         // Clear any previous status
@@ -87,21 +124,41 @@ export default function InventoryDashboard() {
         })
     }
 
-    // Handle manual stock input
-    const handleStockInput = (variant_id, value) => {
-        const newQty = Math.max(0, parseInt(value || '0', 10))
+    // Handle manual additional stock input
+    const handleAdditionalStockInput = (variant_id, value) => {
+        const additionalQty = parseInt(value || '0', 10)
         const current = rows.find(r => r.variant_id === variant_id)
+        const originalStock = originalStockValues[variant_id]?.stock_quantity ?? current?.stock_quantity ?? 0
+        
+        // Store original value if not already stored
+        if (!originalStockValues[variant_id]) {
+            setOriginalStockValues(prev => ({
+                ...prev,
+                [variant_id]: {
+                    stock_quantity: current?.stock_quantity || 0,
+                    reserved_quantity: current?.reserved_quantity || 0
+                }
+            }))
+        }
+
+        const newAdditional = Math.max(-originalStock, additionalQty)
+        const totalStock = originalStock + newAdditional
+        
+        setAdditionalStock(prev => ({
+            ...prev,
+            [variant_id]: newAdditional
+        }))
 
         // Update UI locally
         setRows(prev => prev.map(r => r.variant_id === variant_id
-            ? { ...r, stock_quantity: newQty, needs_restock: newQty <= (r.restock_threshold ?? 0) }
+            ? { ...r, stock_quantity: totalStock, needs_restock: totalStock <= (r.restock_threshold ?? 0) }
             : r
         ))
 
         // Track pending change
         setPendingChanges(prev => ({
             ...prev,
-            [variant_id]: { ...prev[variant_id], stock_quantity: newQty }
+            [variant_id]: { ...prev[variant_id], stock_quantity: totalStock }
         }))
 
         // Clear any previous status
@@ -115,6 +172,18 @@ export default function InventoryDashboard() {
     // Handle manual reserved quantity input
     const handleReservedInput = (variant_id, value) => {
         const newQty = Math.max(0, parseInt(value || '0', 10))
+        const current = rows.find(r => r.variant_id === variant_id)
+
+        // Store original value if not already stored
+        if (!originalStockValues[variant_id]) {
+            setOriginalStockValues(prev => ({
+                ...prev,
+                [variant_id]: {
+                    stock_quantity: current?.stock_quantity || 0,
+                    reserved_quantity: current?.reserved_quantity || 0
+                }
+            }))
+        }
 
         // Update UI locally
         setRows(prev => prev.map(r => r.variant_id === variant_id
@@ -162,6 +231,19 @@ export default function InventoryDashboard() {
                     delete newChanges[variant_id]
                     return newChanges
                 })
+                // Clear additional stock and update original values after successful save
+                setAdditionalStock(prev => {
+                    const newAdditional = { ...prev }
+                    delete newAdditional[variant_id]
+                    return newAdditional
+                })
+                setOriginalStockValues(prev => ({
+                    ...prev,
+                    [variant_id]: {
+                        stock_quantity: rows.find(r => r.variant_id === variant_id)?.stock_quantity || 0,
+                        reserved_quantity: rows.find(r => r.variant_id === variant_id)?.reserved_quantity || 0
+                    }
+                }))
                 setTimeout(() => {
                     setUpdateStatus(prev => {
                         const newStatus = { ...prev }
@@ -306,36 +388,58 @@ export default function InventoryDashboard() {
                                 <TableCell>{row.size || '-'}</TableCell>
                                 <TableCell>
                                     {row.variant_id ? (
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                type="number"
-                                                className={`w-20 ${pendingChanges[row.variant_id]?.stock_quantity !== undefined ? 'border-blue-500 bg-blue-50' : ''}`}
-                                                value={row.stock_quantity || 0}
-                                                onChange={(e) => handleStockInput(row.variant_id, e.target.value)}
-                                                min="0"
-                                            />
-                                            <div className="flex items-center gap-1">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => changeStock(row.variant_id, -1)}
-                                                    disabled={updatingId === row.variant_id}
-                                                    className="h-8 w-8 p-0"
-                                                >
-                                                    <Minus className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => changeStock(row.variant_id, +1)}
-                                                    disabled={updatingId === row.variant_id}
-                                                    className="h-8 w-8 p-0"
-                                                >
-                                                    <Plus className="w-4 h-4" />
-                                                </Button>
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <div className="text-sm font-medium">
+                                                    Current: {originalStockValues[row.variant_id]?.stock_quantity ?? row.stock_quantity ?? 0}
+                                                </div>
                                             </div>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    placeholder="Add/Remove"
+                                                    className={`w-24 ${additionalStock[row.variant_id] !== undefined && additionalStock[row.variant_id] !== 0 ? 'border-blue-500 bg-blue-50' : ''}`}
+                                                    value={additionalStock[row.variant_id] || ''}
+                                                    onChange={(e) => handleAdditionalStockInput(row.variant_id, e.target.value)}
+                                                />
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => changeStock(row.variant_id, -1)}
+                                                        disabled={updatingId === row.variant_id}
+                                                        className="h-8 w-8 p-0"
+                                                    >
+                                                        <Minus className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => changeStock(row.variant_id, +1)}
+                                                        disabled={updatingId === row.variant_id}
+                                                        className="h-8 w-8 p-0"
+                                                    >
+                                                        <Plus className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            {additionalStock[row.variant_id] !== undefined && additionalStock[row.variant_id] !== 0 && (
+                                                <div className="text-xs space-y-1">
+                                                    <div className="text-gray-600">
+                                                        <span className="text-blue-600">Old Stock: {originalStockValues[row.variant_id]?.stock_quantity ?? 0}</span>
+                                                    </div>
+                                                    <div className="text-gray-600">
+                                                        <span className={additionalStock[row.variant_id] >= 0 ? "text-green-600" : "text-red-600"}>
+                                                            {additionalStock[row.variant_id] >= 0 ? '+' : ''}{additionalStock[row.variant_id]} Stock
+                                                        </span>
+                                                    </div>
+                                                    <div className="font-semibold text-purple-600">
+                                                        Total New: {row.stock_quantity}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <span className="text-gray-400 text-xs">No variants</span>
@@ -343,13 +447,22 @@ export default function InventoryDashboard() {
                                 </TableCell>
                                 <TableCell>
                                     {row.variant_id ? (
-                                        <Input
-                                            type="number"
-                                            className={`w-20 ${pendingChanges[row.variant_id]?.reserved_quantity !== undefined ? 'border-blue-500 bg-blue-50' : ''}`}
-                                            value={row.reserved_quantity || 0}
-                                            onChange={(e) => handleReservedInput(row.variant_id, e.target.value)}
-                                            min="0"
-                                        />
+                                        <div className="space-y-1">
+                                            <Input
+                                                type="number"
+                                                className={`w-20 ${pendingChanges[row.variant_id]?.reserved_quantity !== undefined ? 'border-blue-500 bg-blue-50' : ''}`}
+                                                value={row.reserved_quantity || 0}
+                                                onChange={(e) => handleReservedInput(row.variant_id, e.target.value)}
+                                                min="0"
+                                            />
+                                            {pendingChanges[row.variant_id]?.reserved_quantity !== undefined && originalStockValues[row.variant_id] && (
+                                                <div className="text-xs text-gray-600">
+                                                    <span className="text-red-600">Old: {originalStockValues[row.variant_id].reserved_quantity}</span>
+                                                    <span className="mx-1">→</span>
+                                                    <span className="text-green-600">New: {row.reserved_quantity}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     ) : (
                                         <span className="text-gray-400 text-xs">No variants</span>
                                     )}
