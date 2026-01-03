@@ -82,7 +82,7 @@ export default function InventoryDashboard() {
     const changeStock = (variant_id, delta) => {
         const current = rows.find(r => r.variant_id === variant_id)
         const originalStock = originalStockValues[variant_id]?.stock_quantity ?? current?.stock_quantity ?? 0
-        
+
         // Store original value if not already stored
         if (!originalStockValues[variant_id]) {
             setOriginalStockValues(prev => ({
@@ -98,7 +98,7 @@ export default function InventoryDashboard() {
         const currentAdditional = additionalStock[variant_id] || 0
         const newAdditional = Math.max(-originalStock, currentAdditional + delta)
         const totalStock = originalStock + newAdditional
-        
+
         setAdditionalStock(prev => ({
             ...prev,
             [variant_id]: newAdditional
@@ -129,7 +129,7 @@ export default function InventoryDashboard() {
         const additionalQty = parseInt(value || '0', 10)
         const current = rows.find(r => r.variant_id === variant_id)
         const originalStock = originalStockValues[variant_id]?.stock_quantity ?? current?.stock_quantity ?? 0
-        
+
         // Store original value if not already stored
         if (!originalStockValues[variant_id]) {
             setOriginalStockValues(prev => ({
@@ -143,7 +143,7 @@ export default function InventoryDashboard() {
 
         const newAdditional = Math.max(-originalStock, additionalQty)
         const totalStock = originalStock + newAdditional
-        
+
         setAdditionalStock(prev => ({
             ...prev,
             [variant_id]: newAdditional
