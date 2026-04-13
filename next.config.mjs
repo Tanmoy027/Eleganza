@@ -11,7 +11,7 @@ const nextConfig = {
   },
   // Disable static optimization for dynamic content
   experimental: {
-    optimizeCss: true,
+    optimizeCss: false,
   },
   // Webpack configuration to exclude server-side packages from client bundle
   webpack: (config, { isServer }) => {

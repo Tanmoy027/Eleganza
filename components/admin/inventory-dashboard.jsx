@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { getInventoryStatus, /* recordInventoryMovement, */ updateVariant, setProductDiscount } from "@/lib/inventory"
 import { Loader2, Plus, Minus, Percent, RefreshCw, Bell } from "lucide-react"
@@ -14,7 +13,7 @@ export default function InventoryDashboard() {
     const [rows, setRows] = useState([])
     const [loading, setLoading] = useState(true)
     const [updatingId, setUpdatingId] = useState(null)
-    const [filters, setFilters] = useState({ search: "", restockOnly: false, productId: null })
+    const [filters, setFilters] = useState({ search: "", productId: null })
     const [discounting, setDiscounting] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 20
@@ -25,7 +24,7 @@ export default function InventoryDashboard() {
 
     const load = async () => {
         setLoading(true)
-        const { data } = await getInventoryStatus({ onlyNeedsRestock: filters.restockOnly })
+        const { data } = await getInventoryStatus()
         setRows(data || [])
 
         // Store original stock values when data loads
@@ -58,7 +57,7 @@ export default function InventoryDashboard() {
         return () => {
             mounted = false
         }
-    }, [filters.restockOnly])
+    }, [])
 
     const filtered = useMemo(() => {
         let data = rows
@@ -78,7 +77,7 @@ export default function InventoryDashboard() {
     // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1)
-    }, [filters.search, filters.restockOnly, filters.productId])    // Change stock locally without saving
+    }, [filters.search, filters.productId])    // Change stock locally without saving
     const changeStock = (variant_id, delta) => {
         const current = rows.find(r => r.variant_id === variant_id)
         const originalStock = originalStockValues[variant_id]?.stock_quantity ?? current?.stock_quantity ?? 0
@@ -169,42 +168,6 @@ export default function InventoryDashboard() {
         })
     }
 
-    // Handle manual reserved quantity input
-    const handleReservedInput = (variant_id, value) => {
-        const newQty = Math.max(0, parseInt(value || '0', 10))
-        const current = rows.find(r => r.variant_id === variant_id)
-
-        // Store original value if not already stored
-        if (!originalStockValues[variant_id]) {
-            setOriginalStockValues(prev => ({
-                ...prev,
-                [variant_id]: {
-                    stock_quantity: current?.stock_quantity || 0,
-                    reserved_quantity: current?.reserved_quantity || 0
-                }
-            }))
-        }
-
-        // Update UI locally
-        setRows(prev => prev.map(r => r.variant_id === variant_id
-            ? { ...r, reserved_quantity: newQty }
-            : r
-        ))
-
-        // Track pending change
-        setPendingChanges(prev => ({
-            ...prev,
-            [variant_id]: { ...prev[variant_id], reserved_quantity: newQty }
-        }))
-
-        // Clear any previous status
-        setUpdateStatus(prev => {
-            const newStatus = { ...prev }
-            delete newStatus[variant_id]
-            return newStatus
-        })
-    }
-
     // Save pending changes for a specific variant
     const saveChanges = async (variant_id) => {
         if (!pendingChanges[variant_id]) return
@@ -267,18 +230,6 @@ export default function InventoryDashboard() {
         }
     }
 
-    const setThreshold = async (variant_id, value) => {
-        setUpdatingId(variant_id)
-        await updateVariant(variant_id, { restock_threshold: Math.max(0, parseInt(value || '0', 10)) })
-        // Reflect threshold change locally without full reload
-        const newThreshold = Math.max(0, parseInt(value || '0', 10))
-        setRows(prev => prev.map(r => r.variant_id === variant_id
-            ? { ...r, restock_threshold: newThreshold, needs_restock: (r.stock_quantity ?? 0) <= newThreshold }
-            : r
-        ))
-        setUpdatingId(null)
-    }
-
     const applyDiscounts = async () => {
         setDiscounting(true)
         await fetch("/api/admin/inventory/apply-discounts", { method: "POST" })
@@ -305,13 +256,6 @@ export default function InventoryDashboard() {
             <div className="space-y-4 mb-4">
                 <div className="flex items-center gap-3">
                     <Input placeholder="Search by product name" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
-                    <Select value={filters.restockOnly ? 'yes' : 'no'} onValueChange={(v) => setFilters({ ...filters, restockOnly: v === 'yes' })}>
-                        <SelectTrigger className="w-48"><SelectValue placeholder="Restock filter" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="no">All</SelectItem>
-                            <SelectItem value="yes">Needs Restock</SelectItem>
-                        </SelectContent>
-                    </Select>
                     <Button type="button" variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
                     <Button type="button" variant="secondary" onClick={applyDiscounts} disabled={discounting}>
                         {discounting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Percent className="w-4 h-4 mr-2" />} Apply Stale Discounts
@@ -354,17 +298,15 @@ export default function InventoryDashboard() {
                             <TableHead>Color</TableHead>
                             <TableHead>Size</TableHead>
                             <TableHead>In Stock</TableHead>
-                            <TableHead>Reserved</TableHead>
-                            <TableHead>Threshold</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={8} className="text-center py-8"><Loader2 className="w-5 h-5 inline mr-2 animate-spin" /> Loading...</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="w-5 h-5 inline mr-2 animate-spin" /> Loading...</TableCell></TableRow>
                         ) : paginatedData.length === 0 ? (
-                            <TableRow><TableCell colSpan={8} className="text-center py-8">No products found</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} className="text-center py-8">No products found</TableCell></TableRow>
                         ) : paginatedData.map((row, index) => (
                             <TableRow key={row.variant_id || `product-${row.product_id}-${index}`}>
                                 <TableCell className="flex items-center gap-2">
@@ -441,35 +383,6 @@ export default function InventoryDashboard() {
                                                 </div>
                                             )}
                                         </div>
-                                    ) : (
-                                        <span className="text-gray-400 text-xs">No variants</span>
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    {row.variant_id ? (
-                                        <div className="space-y-1">
-                                            <Input
-                                                type="number"
-                                                className={`w-20 ${pendingChanges[row.variant_id]?.reserved_quantity !== undefined ? 'border-blue-500 bg-blue-50' : ''}`}
-                                                value={row.reserved_quantity || 0}
-                                                onChange={(e) => handleReservedInput(row.variant_id, e.target.value)}
-                                                min="0"
-                                            />
-                                            {pendingChanges[row.variant_id]?.reserved_quantity !== undefined && originalStockValues[row.variant_id] && (
-                                                <div className="text-xs text-gray-600">
-                                                    <span className="text-red-600">Old: {originalStockValues[row.variant_id].reserved_quantity}</span>
-                                                    <span className="mx-1">→</span>
-                                                    <span className="text-green-600">New: {row.reserved_quantity}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <span className="text-gray-400 text-xs">No variants</span>
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    {row.variant_id ? (
-                                        <Input type="number" className="w-24" defaultValue={row.restock_threshold} onBlur={(e) => setThreshold(row.variant_id, e.target.value)} />
                                     ) : (
                                         <span className="text-gray-400 text-xs">No variants</span>
                                     )}

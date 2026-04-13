@@ -57,6 +57,56 @@ export async function GET(request) {
             })
         }
 
+        // Compute reserved quantities from open orders
+        const normalizeSize = (value) => (value ?? '').toString().trim().toUpperCase()
+        const normalizeColor = (value) => (value ?? '').toString().trim().toLowerCase()
+        const makeVariantKey = (productId, size, color) => `${productId}|${normalizeSize(size)}|${normalizeColor(color)}`
+
+        const variantKeyToId = new Map()
+        if (variantsData && variantsData.length > 0) {
+            variantsData.forEach(v => {
+                variantKeyToId.set(makeVariantKey(v.product_id, v.size, v.color), v.id)
+            })
+        }
+
+        const reservedByVariantId = new Map()
+        const reservedByProductId = new Map()
+
+        const openStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered']
+        const { data: openOrders, error: openOrdersError } = await supabase
+            .from('orders')
+            .select('id,status')
+            .in('status', openStatuses)
+
+        if (openOrdersError) {
+            console.error('Error fetching open orders:', openOrdersError)
+        }
+
+        const orderIds = (openOrders || []).map(o => o.id)
+        if (orderIds.length > 0) {
+            const { data: orderItems, error: orderItemsError } = await supabase
+                .from('order_items')
+                .select('order_id, product_id, size, color, quantity')
+                .in('order_id', orderIds)
+
+            if (orderItemsError) {
+                console.error('Error fetching open order items:', orderItemsError)
+            } else {
+                ; (orderItems || []).forEach(item => {
+                    const qty = Number(item.quantity) || 0
+                    if (!qty) return
+                    const key = makeVariantKey(item.product_id, item.size, item.color)
+                    const variantId = variantKeyToId.get(key)
+
+                    if (variantId) {
+                        reservedByVariantId.set(variantId, (reservedByVariantId.get(variantId) || 0) + qty)
+                    } else {
+                        reservedByProductId.set(item.product_id, (reservedByProductId.get(item.product_id) || 0) + qty)
+                    }
+                })
+            }
+        }
+
         // Build inventory data - include ALL products
         let data = []
         allProducts.forEach(product => {
@@ -74,7 +124,7 @@ export async function GET(request) {
                         color: v.color,
                         size: v.size,
                         stock_quantity: v.stock_quantity,
-                        reserved_quantity: v.reserved_quantity,
+                        reserved_quantity: Math.max(reservedByVariantId.get(v.id) || 0, v.reserved_quantity ?? 0),
                         restock_threshold: v.restock_threshold,
                         needs_restock: v.stock_quantity <= v.restock_threshold,
                         last_sold_at: v.last_sold_at,
@@ -103,7 +153,7 @@ export async function GET(request) {
                         color: combo.color,
                         size: combo.size,
                         stock_quantity: 0,
-                        reserved_quantity: 0,
+                        reserved_quantity: reservedByProductId.get(product.id) || 0,
                         restock_threshold: 5,
                         needs_restock: true,
                         last_sold_at: null,
@@ -121,7 +171,7 @@ export async function GET(request) {
                     color: null,
                     size: null,
                     stock_quantity: product.stock_quantity || 0,
-                    reserved_quantity: 0,
+                    reserved_quantity: reservedByProductId.get(product.id) || 0,
                     restock_threshold: 5,
                     needs_restock: (product.stock_quantity || 0) <= 5,
                     last_sold_at: null,
