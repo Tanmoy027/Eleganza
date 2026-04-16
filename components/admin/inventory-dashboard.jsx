@@ -22,6 +22,13 @@ export default function InventoryDashboard() {
     const [originalStockValues, setOriginalStockValues] = useState({})
     const [additionalStock, setAdditionalStock] = useState({})
 
+    const getStockWarningLevel = (row) => {
+        const qty = Number(row?.stock_quantity ?? 0)
+        if (qty < 5) return "critical"
+        if (qty < 10) return "low"
+        return null
+    }
+
     const load = async () => {
         setLoading(true)
         const { data } = await getInventoryStatus()
@@ -311,8 +318,11 @@ export default function InventoryDashboard() {
                             <TableRow key={row.variant_id || `product-${row.product_id}-${index}`}>
                                 <TableCell className="flex items-center gap-2">
                                     <span>{row.product_name}</span>
-                                    {row.needs_restock && (
-                                        <button type="button" title="Low stock" onClick={() => focusLowStock(row.product_id)} className="text-red-600"><Bell className="w-4 h-4" /></button>
+                                    {getStockWarningLevel(row) === "critical" && (
+                                        <button type="button" title="Stock under 5" onClick={() => focusLowStock(row.product_id)} className="text-red-600"><Bell className="w-4 h-4" /></button>
+                                    )}
+                                    {getStockWarningLevel(row) === "low" && (
+                                        <button type="button" title="Stock under 10" onClick={() => focusLowStock(row.product_id)} className="text-black"><Bell className="w-4 h-4" /></button>
                                     )}
                                     {/* Black notification for stale (no sales in 7+ days) */}
                                     {(((row.days_without_sale ?? (row.last_sold_at ? Math.floor((Date.now() - new Date(row.last_sold_at).getTime()) / 86400000) : Infinity)) >= 7) && ((row.stock_quantity ?? 0) > 0)) && (
@@ -388,12 +398,12 @@ export default function InventoryDashboard() {
                                     )}
                                 </TableCell>
                                 <TableCell>
-                                    {row.variant_id ? (
-                                        row.needs_restock ? (
-                                            <Badge variant="destructive">Needs Restock</Badge>
-                                        ) : (
-                                            <Badge variant="secondary">OK</Badge>
-                                        )
+                                    {getStockWarningLevel(row) === "critical" ? (
+                                        <Badge variant="destructive">Under 5</Badge>
+                                    ) : getStockWarningLevel(row) === "low" ? (
+                                        <Badge className="bg-black text-white">Under 10</Badge>
+                                    ) : row.variant_id ? (
+                                        <Badge variant="secondary">OK</Badge>
                                     ) : (
                                         <Badge variant="outline">No Variants</Badge>
                                     )}

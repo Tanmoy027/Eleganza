@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { getSupabaseServiceRoleClient } from "@/lib/supabase/service"
 import { sendOrderStatusUpdateEmail, sendOrderCancellationNotificationToAdmin, sendOrderCancellationEmailToCustomer } from "@/lib/email-service"
+import { adjustInventoryForOrder } from "@/lib/inventory-server"
 
 export async function POST(request) {
     try {
@@ -141,6 +142,17 @@ export async function POST(request) {
                 .from('order_items')
                 .select('product_name, quantity, size, color')
                 .eq('order_id', orderId)
+
+            // Restock inventory for cancelled orders
+            const { error: restockError } = await adjustInventoryForOrder({
+                orderId,
+                action: "restock",
+                actor: "admin_cancel"
+            })
+
+            if (restockError) {
+                console.error("Error restocking inventory on admin cancel:", restockError)
+            }
 
             // Send emails
             try {

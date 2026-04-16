@@ -112,7 +112,7 @@ export function ProductReviews({ productId }) {
         }
 
         if (!hasPurchased) {
-            alert("You can only review products you have purchased")
+            alert("You can only review products after your order is completed")
             return
         }
 
@@ -166,7 +166,7 @@ export function ProductReviews({ productId }) {
             if (result.error) {
                 console.error("Error submitting review:", result.error)
                 if (result.error.message?.includes("has_purchased_product")) {
-                    alert("You can only review products you have purchased and received.")
+                    alert("You can only review products after your order is completed.")
                 } else {
                     alert("Error submitting review. Please try again.")
                 }
@@ -441,8 +441,8 @@ export function ProductReviews({ productId }) {
                         <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
                             <CardContent className="pt-8 pb-8 text-center">
                                 <Shield className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Purchase Required to Review</h3>
-                                <p className="text-gray-600 mb-4">You can only write reviews for products you have purchased</p>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Completed Order Required to Review</h3>
+                                <p className="text-gray-600 mb-4">You can only write reviews after your order is completed</p>
                                 {checkingPurchase && (
                                     <p className="text-sm text-gray-500">Checking purchase history...</p>
                                 )}

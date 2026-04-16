@@ -3,6 +3,7 @@ import Stripe from "stripe"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
 import { getSupabaseServiceRoleClient } from "@/lib/supabase/service"
 import { sendOrderConfirmationEmail, sendNewOrderNotificationToAdmin } from "@/lib/email-service"
+import { adjustInventoryForOrder } from "@/lib/inventory-server"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
@@ -147,6 +148,16 @@ export async function POST(request) {
                         status: "cancelled",
                     })
                     .eq("id", orderId)
+
+                const { error: restockError } = await adjustInventoryForOrder({
+                    orderId,
+                    action: "restock",
+                    actor: "stripe_expired"
+                })
+
+                if (restockError) {
+                    console.error("Error restocking inventory for expired checkout:", restockError)
+                }
 
                 console.log(`Payment expired for order: ${orderId}`)
                 break
